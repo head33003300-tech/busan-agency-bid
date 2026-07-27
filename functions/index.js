@@ -62,7 +62,6 @@ function toNoticeDoc(item, type) {
     baseAmount: item.presmptPrce || null,
     detailUrl: item.bidNtceDtlUrl || null,
     source: "naraTerm-api",
-    isToday: false,
     updatedAt: new Date().toISOString(),
   };
 }
@@ -111,11 +110,34 @@ exports.collectNaraNotices = onSchedule(
       return;
     }
 
+    const refs = notices
+      .filter((n) => n.bidNtceNo)
+      .map((n) => db.collection("notices").doc(n.bidNtceNo));
+    const existingSnaps = refs.length ? await db.getAll(...refs) : [];
+    const existingMap = new Map(
+      existingSnaps.map((snap) => [snap.id, snap.exists ? snap.data() : null])
+    );
+
+    const today = todayStr();
     const batch = db.batch();
     for (const notice of notices) {
       if (!notice.bidNtceNo) continue;
       const ref = db.collection("notices").doc(notice.bidNtceNo);
-      batch.set(ref, notice, { merge: true });
+      const existing = existingMap.get(notice.bidNtceNo);
+
+      let extra;
+      if (!existing) {
+        extra = { firstSeenAt: today, isExtended: false };
+      } else {
+        const closeChanged =
+          existing.closeAt && notice.closeAt && existing.closeAt !== notice.closeAt;
+        extra = {
+          firstSeenAt: existing.firstSeenAt || today,
+          isExtended: !!existing.isExtended || !!closeChanged,
+        };
+      }
+
+      batch.set(ref, { ...notice, ...extra }, { merge: true });
     }
     await batch.commit();
 

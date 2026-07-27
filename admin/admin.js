@@ -51,6 +51,12 @@ onAuthStateChanged(auth, (user) => {
 
 noticeForm.addEventListener("submit", async (e) => {
   e.preventDefault();
+  const today = new Date();
+  const todayStr =
+    today.getFullYear() +
+    String(today.getMonth() + 1).padStart(2, "0") +
+    String(today.getDate()).padStart(2, "0");
+
   const notice = {
     title: document.getElementById("title").value,
     org: document.getElementById("org").value,
@@ -59,7 +65,8 @@ noticeForm.addEventListener("submit", async (e) => {
     closeAt: document.getElementById("closeAt").value || null,
     detailUrl: document.getElementById("detailUrl").value || null,
     source: "manual",
-    isToday: true,
+    firstSeenAt: todayStr,
+    isExtended: false,
     updatedAt: new Date().toISOString(),
   };
   await addDoc(collection(db, "notices"), notice);

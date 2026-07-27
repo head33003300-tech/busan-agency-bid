@@ -13,6 +13,22 @@
   </header>
 
   <main>
+    <section id="todaySection" class="highlight-section" style="display:none;">
+      <h2>🔔 오늘 신규 추가</h2>
+      <div id="todayList" class="notice-list"></div>
+    </section>
+
+    <section id="extendedSection" class="highlight-section" style="display:none;">
+      <h2>📌 기간 연장 공고</h2>
+      <div id="extendedList" class="notice-list"></div>
+    </section>
+
+    <section id="dueSoonSection" class="highlight-section" style="display:none;">
+      <h2>⏰ 마감 3일 이내</h2>
+      <div id="dueSoonList" class="notice-list"></div>
+    </section>
+
+    <h2>전체 공고 목록</h2>
     <section class="filters">
       <input id="searchInput" type="text" placeholder="공고명 / 기관명 검색" />
       <select id="typeFilter">
