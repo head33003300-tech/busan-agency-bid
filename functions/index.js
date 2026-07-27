@@ -29,19 +29,20 @@ const OPERATIONS = [
 
 const BUSAN_KEYWORDS = ["부산", "Busan", "부산광역시", "부산시"];
 
+// "참여 가능한 기업의 소재지(참가가능지역)"가 부산이거나, 지역제한이 아예 없는(전국 대상)
+// 공고를 포함함 (전국 대상 공고는 부산 기업도 참여 가능하므로 포함)
+// ⚠️ rgnLmtBidLocplcJdgmBssNm(낙찰자결정기준명)은 참가지역이 아니라 낙찰기준 이름이라
+//    지역명이 우연히 섞여있을 수 있어 판별에서 제외함
 function isBusanRelated(item) {
-  const participationRegion =
-    (item.prtcptPsblRgnNm || "") + "" + (item.rgnLmtBidLocplcJdgmBssNm || "");
+  const participationRegion = item.prtcptPsblRgnNm || "";
 
-  const hasNoRegionLimit =
-    participationRegion.trim() === "" || participationRegion.includes("전국");
+  const hasNoRegionLimit = participationRegion.trim() === "" || participationRegion.includes("전국");
 
   return hasNoRegionLimit || BUSAN_KEYWORDS.some((kw) => participationRegion.includes(kw));
 }
 
 function toNoticeDoc(item, type) {
-  const participationRegion =
-    (item.prtcptPsblRgnNm || "") + "" + (item.rgnLmtBidLocplcJdgmBssNm || "");
+  const participationRegion = item.prtcptPsblRgnNm || "";
   const regionScope =
     participationRegion.trim() === "" || participationRegion.includes("전국")
       ? "전국(제한없음)"
