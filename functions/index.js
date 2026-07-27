@@ -21,17 +21,14 @@ const db = getFirestore();
 // ⚠️ 공식 참고문서 기준 정확한 경로: /1230000/ad/BidPublicInfoService (ad 누락 주의)
 const BASE_URL = "https://apis.data.go.kr/1230000/ad/BidPublicInfoService";
 
-// 업무구분별 오퍼레이션 (나라장터 입찰공고정보서비스 - 입찰공고목록 조회)
 const OPERATIONS = [
   { type: "물품", path: "getBidPblancListInfoThng" },
   { type: "공사", path: "getBidPblancListInfoCnstwk" },
   { type: "용역", path: "getBidPblancListInfoServc" },
 ];
 
-// 부산 판별 키워드
 const BUSAN_KEYWORDS = ["부산", "Busan", "부산광역시", "부산시"];
 
-// ── 유틸 ──────────────────────────────────────────────
 function isBusanRelated(item) {
   const participationRegion =
     (item.prtcptPsblRgnNm || "") + "" + (item.rgnLmtBidLocplcJdgmBssNm || "");
@@ -59,7 +56,9 @@ function toNoticeDoc(item, type) {
     regionScope,
     bidMethod: item.bidMethdNm || "",
     postedAt: item.bidNtceDt || null,
-    closeAt: item.bidClseDt || null,
+    // 입찰마감일시(bidClseDt)가 없는 공고(주로 협상에 의한 계약)는
+    // 개찰일시(opengDt)를 대신 마감 판단 기준으로 사용
+    closeAt: item.bidClseDt || item.opengDt || null,
     baseAmount: item.presmptPrce || null,
     detailUrl: item.bidNtceDtlUrl || null,
     source: "naraTerm-api",
@@ -94,7 +93,6 @@ function httpsGetJson(url) {
 }
 
 async function fetchOperation(op, apiKey) {
-  // ⚠️ 공식 문서 기준 파라미터명은 정확히 "ServiceKey" (대문자 S)
   const url = `${BASE_URL}/${op.path}?ServiceKey=${apiKey}&pageNo=1&numOfRows=100&type=json&inqryDiv=1&inqryBgnDt=${todayStr()}0000&inqryEndDt=${todayStr()}2359`;
 
   const { status, body } = await httpsGetJson(url);

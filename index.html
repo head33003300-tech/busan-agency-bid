@@ -8,8 +8,10 @@
 </head>
 <body>
   <header class="site-header">
+    <span class="mark">⚓ Busan Procurement Watch</span>
     <h1>부산지역 공기업·공공기관 사업공고</h1>
     <p class="sub">나라장터 기반 실시간 모니터링 (자동 수집)</p>
+    <a href="#allList" class="jump-link">전체 공고 목록 · 검색으로 바로가기 ↓</a>
   </header>
 
   <main>
@@ -28,7 +30,7 @@
       <div id="dueSoonList" class="notice-list"></div>
     </section>
 
-    <h2>전체 공고 목록</h2>
+    <h2 id="allList">전체 공고 목록</h2>
     <section class="filters">
       <input id="searchInput" type="text" placeholder="공고명 / 기관명 검색" />
       <select id="typeFilter">
@@ -47,6 +49,11 @@
     <section id="noticeList" class="notice-list">
       <!-- app.js가 여기에 공고 카드를 렌더링 -->
       <p class="loading">불러오는 중...</p>
+    </section>
+
+    <h2>마감된 공고</h2>
+    <section id="closedList" class="notice-list closed-list">
+      <p class="empty">마감된 공고가 없습니다.</p>
     </section>
   </main>
 

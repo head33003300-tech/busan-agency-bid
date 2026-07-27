@@ -7,6 +7,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const listEl = document.getElementById("noticeList");
+const closedListEl = document.getElementById("closedList");
 const searchInput = document.getElementById("searchInput");
 const typeFilter = document.getElementById("typeFilter");
 const regionFilter = document.getElementById("regionFilter");
@@ -73,9 +74,18 @@ function render() {
   const type = typeFilter.value;
   const regionScope = regionFilter.value;
 
-  const todayItems = allNotices.filter((n) => n.firstSeenAt === todayStr());
-  const extendedItems = allNotices.filter((n) => n.isExtended);
-  const dueSoonItems = allNotices.filter((n) => {
+  const openNotices = allNotices.filter((n) => {
+    const d = daysUntilClose(n.closeAt);
+    return d === null || d >= 0;
+  });
+  const closedNotices = allNotices.filter((n) => {
+    const d = daysUntilClose(n.closeAt);
+    return d !== null && d < 0;
+  });
+
+  const todayItems = openNotices.filter((n) => n.firstSeenAt === todayStr());
+  const extendedItems = openNotices.filter((n) => n.isExtended);
+  const dueSoonItems = openNotices.filter((n) => {
     const d = daysUntilClose(n.closeAt);
     return d !== null && d >= 0 && d <= 3;
   });
@@ -84,7 +94,7 @@ function render() {
   renderSection(extendedSection, extendedList, extendedItems);
   renderSection(dueSoonSection, dueSoonList, dueSoonItems);
 
-  const filtered = allNotices.filter((n) => {
+  const filtered = openNotices.filter((n) => {
     const matchesKeyword =
       !keyword ||
       n.title.toLowerCase().includes(keyword) ||
@@ -94,12 +104,21 @@ function render() {
     return matchesKeyword && matchesType && matchesRegion;
   });
 
-  if (filtered.length === 0) {
-    listEl.innerHTML = `<p class="empty">표시할 공고가 없습니다.</p>`;
-    return;
-  }
+  listEl.innerHTML =
+    filtered.length === 0
+      ? `<p class="empty">표시할 공고가 없습니다.</p>`
+      : filtered.map(cardHtml).join("");
 
-  listEl.innerHTML = filtered.map(cardHtml).join("");
+  const sortedClosed = [...closedNotices].sort((a, b) => {
+    const da = daysUntilClose(a.closeAt) ?? -Infinity;
+    const db_ = daysUntilClose(b.closeAt) ?? -Infinity;
+    return db_ - da;
+  });
+
+  closedListEl.innerHTML =
+    sortedClosed.length === 0
+      ? `<p class="empty">마감된 공고가 없습니다.</p>`
+      : sortedClosed.map(cardHtml).join("");
 }
 
 const q = query(collection(db, "notices"), orderBy("closeAt", "asc"));
