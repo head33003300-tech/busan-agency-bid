@@ -63,22 +63,47 @@ function toNoticeDoc(item, type) {
   };
 }
 
+const https = require("https");
+
+function httpsGetJson(url) {
+  return new Promise((resolve, reject) => {
+    https
+      .get(
+        url,
+        {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+            Accept: "application/json",
+            "Accept-Encoding": "identity",
+            Connection: "close",
+          },
+        },
+        (res) => {
+          let data = "";
+          res.setEncoding("utf8");
+          res.on("data", (chunk) => (data += chunk));
+          res.on("end", () => resolve({ status: res.statusCode, body: data }));
+        }
+      )
+      .on("error", reject);
+  });
+}
+
 async function fetchOperation(op, apiKey) {
   const url = `${BASE_URL}/${op.path}?serviceKey=${apiKey}&pageNo=1&numOfRows=100&type=json&inqryDiv=1&inqryBgnDt=${todayStr()}0000&inqryEndDt=${todayStr()}2359`;
 
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-      Accept: "application/json",
-    },
-  });
-  if (!res.ok) {
-    const bodyText = await res.text().catch(() => "");
-    logger.error(`나라장터 API 호출 실패 (${op.type}) ${res.status}`, bodyText.slice(0, 500));
+  const { status, body } = await httpsGetJson(url);
+  if (status !== 200) {
+    logger.error(`나라장터 API 호출 실패 (${op.type}) ${status}`, body.slice(0, 500));
     return [];
   }
-  const data = await res.json();
+  let data;
+  try {
+    data = JSON.parse(body);
+  } catch (e) {
+    logger.error(`나라장터 API 응답 파싱 실패 (${op.type})`, body.slice(0, 500));
+    return [];
+  }
   const items = data?.response?.body?.items || [];
   return items.map((item) => toNoticeDoc(item, op.type)).filter(isBusanRelated);
 }
@@ -109,6 +134,10 @@ exports.collectNaraNotices = onSchedule(
       logger.error("NARA_API_KEY 환경변수가 설정되지 않았습니다.");
       return;
     }
+
+    logger.info(
+      `NARA_API_KEY 확인: ${apiKey.slice(0, 6)}...${apiKey.slice(-4)} (길이: ${apiKey.length})`
+    );
 
     const notices = [];
     for (const op of OPERATIONS) {

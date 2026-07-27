@@ -1,0 +1,8 @@
+{
+  "name": "busan-public-notice-collector",
+  "private": true,
+  "engines": { "node": "20" },
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  }
+}
