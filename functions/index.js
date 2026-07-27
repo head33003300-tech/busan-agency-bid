@@ -18,16 +18,20 @@ initializeApp();
 const db = getFirestore();
 
 // ── 설정 ──────────────────────────────────────────────
-const BASE_URL = "https://apis.data.go.kr/1230000/BidPublicInfoService";
+// ⚠️ 공식 참고문서 기준 정확한 경로: /1230000/ad/BidPublicInfoService (ad 누락 주의)
+const BASE_URL = "https://apis.data.go.kr/1230000/ad/BidPublicInfoService";
 
+// 업무구분별 오퍼레이션 (나라장터 입찰공고정보서비스 - 입찰공고목록 조회)
 const OPERATIONS = [
   { type: "물품", path: "getBidPblancListInfoThng" },
   { type: "공사", path: "getBidPblancListInfoCnstwk" },
   { type: "용역", path: "getBidPblancListInfoServc" },
 ];
 
+// 부산 판별 키워드
 const BUSAN_KEYWORDS = ["부산", "Busan", "부산광역시", "부산시"];
 
+// ── 유틸 ──────────────────────────────────────────────
 function isBusanRelated(item) {
   const participationRegion =
     (item.prtcptPsblRgnNm || "") + "" + (item.rgnLmtBidLocplcJdgmBssNm || "");
@@ -90,7 +94,8 @@ function httpsGetJson(url) {
 }
 
 async function fetchOperation(op, apiKey) {
-  const url = `${BASE_URL}/${op.path}?serviceKey=${apiKey}&pageNo=1&numOfRows=100&type=json&inqryDiv=1&inqryBgnDt=${todayStr()}0000&inqryEndDt=${todayStr()}2359`;
+  // ⚠️ 공식 문서 기준 파라미터명은 정확히 "ServiceKey" (대문자 S)
+  const url = `${BASE_URL}/${op.path}?ServiceKey=${apiKey}&pageNo=1&numOfRows=100&type=json&inqryDiv=1&inqryBgnDt=${todayStr()}0000&inqryEndDt=${todayStr()}2359`;
 
   const { status, body } = await httpsGetJson(url);
   if (status !== 200) {
@@ -134,10 +139,6 @@ exports.collectNaraNotices = onSchedule(
       logger.error("NARA_API_KEY 환경변수가 설정되지 않았습니다.");
       return;
     }
-
-    logger.info(
-      `NARA_API_KEY 확인: ${apiKey.slice(0, 6)}...${apiKey.slice(-4)} (길이: ${apiKey.length})`
-    );
 
     const notices = [];
     for (const op of OPERATIONS) {
