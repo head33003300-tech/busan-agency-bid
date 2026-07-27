@@ -10,7 +10,6 @@ const listEl = document.getElementById("noticeList");
 const closedListEl = document.getElementById("closedList");
 const searchInput = document.getElementById("searchInput");
 const typeFilter = document.getElementById("typeFilter");
-const regionFilter = document.getElementById("regionFilter");
 
 const todaySection = document.getElementById("todaySection");
 const todayList = document.getElementById("todayList");
@@ -72,7 +71,6 @@ function renderSection(sectionEl, listEl, items) {
 function render() {
   const keyword = searchInput.value.trim().toLowerCase();
   const type = typeFilter.value;
-  const regionScope = regionFilter.value;
 
   const openNotices = allNotices.filter((n) => {
     const d = daysUntilClose(n.closeAt);
@@ -100,8 +98,7 @@ function render() {
       n.title.toLowerCase().includes(keyword) ||
       n.org.toLowerCase().includes(keyword);
     const matchesType = !type || n.type === type;
-    const matchesRegion = !regionScope || n.regionScope === regionScope;
-    return matchesKeyword && matchesType && matchesRegion;
+    return matchesKeyword && matchesType;
   });
 
   listEl.innerHTML =
@@ -130,4 +127,3 @@ onSnapshot(q, (snapshot) => {
 
 searchInput.addEventListener("input", render);
 typeFilter.addEventListener("change", render);
-regionFilter.addEventListener("change", render);

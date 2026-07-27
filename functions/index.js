@@ -1,8 +1,8 @@
 /**
  * 부산지역 공기업/공공기관 사업공고 자동 수집 Cloud Function
  *
- * - 나라장터 오픈API(입찰공고정보서비스)를 주기적으로 호출
- * - 발주기관 소재지가 부산이거나, 공고명/기관명에 부산 관련 키워드가 포함된 공고만 필터링
+ * - 나라장터 오픈API(나라장터검색조건에 의한 입찰공고조회, PPSSrch)를 주기적으로 호출
+ * - API 자체의 참가제한지역코드(prtcptLmtRgnCd=26, 부산광역시) 필터로 부산 제한 공고만 조회
  * - Firestore 'notices' 컬렉션에 upsert (공고번호 기준 중복 방지)
  *
  * 환경변수(.env 또는 functions:config)로 다음 값을 설정해야 합니다.
@@ -21,40 +21,25 @@ const db = getFirestore();
 // ⚠️ 공식 참고문서 기준 정확한 경로: /1230000/ad/BidPublicInfoService (ad 누락 주의)
 const BASE_URL = "https://apis.data.go.kr/1230000/ad/BidPublicInfoService";
 
+// 부산광역시 참가제한지역코드 = 26 (공식 참고문서 코드표 기준)
+const BUSAN_REGION_CODE = "26";
+
+// 업무구분별 오퍼레이션 (나라장터검색조건에 의한 입찰공고조회 - 지역코드 필터 지원)
 const OPERATIONS = [
-  { type: "물품", path: "getBidPblancListInfoThng" },
-  { type: "공사", path: "getBidPblancListInfoCnstwk" },
-  { type: "용역", path: "getBidPblancListInfoServc" },
+  { type: "물품", path: "getBidPblancListInfoThngPPSSrch" },
+  { type: "공사", path: "getBidPblancListInfoCnstwkPPSSrch" },
+  { type: "용역", path: "getBidPblancListInfoServcPPSSrch" },
 ];
 
-const BUSAN_KEYWORDS = ["부산", "Busan", "부산광역시", "부산시"];
-
-// "참여 가능한 기업의 소재지(참가가능지역)"가 부산이거나, 지역제한이 아예 없는(전국 대상)
-// 공고를 포함함 (전국 대상 공고는 부산 기업도 참여 가능하므로 포함)
-// ⚠️ rgnLmtBidLocplcJdgmBssNm(낙찰자결정기준명)은 참가지역이 아니라 낙찰기준 이름이라
-//    지역명이 우연히 섞여있을 수 있어 판별에서 제외함
-function isBusanRelated(item) {
-  const participationRegion = item.prtcptPsblRgnNm || "";
-
-  const hasNoRegionLimit = participationRegion.trim() === "" || participationRegion.includes("전국");
-
-  return hasNoRegionLimit || BUSAN_KEYWORDS.some((kw) => participationRegion.includes(kw));
-}
-
+// ── 유틸 ──────────────────────────────────────────────
 function toNoticeDoc(item, type) {
-  const participationRegion = item.prtcptPsblRgnNm || "";
-  const regionScope =
-    participationRegion.trim() === "" || participationRegion.includes("전국")
-      ? "전국(제한없음)"
-      : "부산제한";
-
   return {
     bidNtceNo: item.bidNtceNo || null,
     type,
     title: item.bidNtceNm || "",
     org: item.ntceInsttNm || item.dminsttNm || "",
     region: item.prtcptPsblRgnNm || "",
-    regionScope,
+    regionScope: "부산제한", // prtcptLmtRgnCd=26으로 이미 부산 제한 공고만 조회했으므로 고정
     bidMethod: item.bidMethdNm || "",
     postedAt: item.bidNtceDt || null,
     // 입찰마감일시(bidClseDt)가 없는 공고(주로 협상에 의한 계약)는
@@ -94,7 +79,7 @@ function httpsGetJson(url) {
 }
 
 async function fetchOperation(op, apiKey) {
-  const url = `${BASE_URL}/${op.path}?ServiceKey=${apiKey}&pageNo=1&numOfRows=100&type=json&inqryDiv=1&inqryBgnDt=${todayStr()}0000&inqryEndDt=${todayStr()}2359`;
+  const url = `${BASE_URL}/${op.path}?ServiceKey=${apiKey}&pageNo=1&numOfRows=100&type=json&inqryDiv=1&inqryBgnDt=${todayStr()}0000&inqryEndDt=${todayStr()}2359&prtcptLmtRgnCd=${BUSAN_REGION_CODE}`;
 
   const { status, body } = await httpsGetJson(url);
   if (status !== 200) {
@@ -109,7 +94,7 @@ async function fetchOperation(op, apiKey) {
     return [];
   }
   const items = data?.response?.body?.items || [];
-  return items.map((item) => toNoticeDoc(item, op.type)).filter(isBusanRelated);
+  return items.map((item) => toNoticeDoc(item, op.type));
 }
 
 function todayStr() {
