@@ -56,6 +56,13 @@
     <p>데이터 출처: 나라장터(조달청) 공공데이터포털 오픈API · 10분 간격 자동 갱신</p>
   </footer>
 
+  <div id="detailModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box">
+      <button id="modalClose" class="modal-close" aria-label="닫기">✕</button>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
   <script type="module" src="firebase-config.js"></script>
   <script type="module" src="app.js"></script>
 </body>

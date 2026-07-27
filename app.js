@@ -18,7 +18,12 @@ const extendedList = document.getElementById("extendedList");
 const dueSoonSection = document.getElementById("dueSoonSection");
 const dueSoonList = document.getElementById("dueSoonList");
 
+const detailModal = document.getElementById("detailModal");
+const modalBody = document.getElementById("modalBody");
+const modalClose = document.getElementById("modalClose");
+
 let allNotices = [];
+let noticesById = new Map();
 
 function todayStr() {
   const d = new Date();
@@ -50,15 +55,22 @@ function formatAddedTime(isoString) {
   return `${hh}:${mm}`;
 }
 
+function formatAmount(n) {
+  if (!n) return null;
+  const num = Number(n);
+  if (Number.isNaN(num)) return n;
+  return num.toLocaleString("ko-KR") + "원";
+}
+
 function cardHtml(n) {
   const isToday = n.firstSeenAt === todayStr();
   return `
-    <article class="notice-card">
+    <article class="notice-card" data-bidno="${n.bidNtceNo}">
       <span class="badge">${n.type || "기타"}</span>
       ${n.regionScope ? `<span class="badge">${n.regionScope}</span>` : ""}
       ${isToday ? `<span class="badge new">오늘신규${n.firstSeenTime ? ` · ${formatAddedTime(n.firstSeenTime)} 추가` : ""}</span>` : ""}
       ${n.isExtended ? '<span class="badge new">연장</span>' : ""}
-      <h3>${n.detailUrl ? `<a href="${n.detailUrl}" target="_blank" rel="noopener">${n.title}</a>` : n.title}</h3>
+      <h3>${n.title}</h3>
       <div class="meta">
         <span>${n.org || "기관명 미상"}</span>
         <span>공고일 ${n.postedAt || "-"}</span>
@@ -67,6 +79,44 @@ function cardHtml(n) {
     </article>
   `;
 }
+
+function openModal(bidNtceNo) {
+  const n = noticesById.get(bidNtceNo);
+  if (!n) return;
+
+  const amount = formatAmount(n.baseAmount);
+
+  modalBody.innerHTML = `
+    <h3>${n.title}</h3>
+    <div class="modal-row"><span class="label">기관</span><span class="value">${n.org || "-"}</span></div>
+    <div class="modal-row"><span class="label">업무구분</span><span class="value">${n.type || "-"}</span></div>
+    <div class="modal-row"><span class="label">지역구분</span><span class="value">${n.regionScope || "-"}${n.region ? ` (${n.region})` : ""}</span></div>
+    <div class="modal-row"><span class="label">계약방법</span><span class="value">${n.bidMethod || "-"}</span></div>
+    <div class="modal-row"><span class="label">공고일</span><span class="value">${n.postedAt || "-"}</span></div>
+    <div class="modal-row"><span class="label">마감일</span><span class="value">${n.closeAt || "-"}</span></div>
+    ${amount ? `<div class="modal-row"><span class="label">추정가격</span><span class="value">${amount}</span></div>` : ""}
+    ${n.detailUrl ? `<a class="modal-link-btn" href="${n.detailUrl}" target="_blank" rel="noopener">나라장터 원문 공고 열기 →</a>` : ""}
+  `;
+  detailModal.style.display = "flex";
+}
+
+function closeModal() {
+  detailModal.style.display = "none";
+}
+
+modalClose.addEventListener("click", closeModal);
+detailModal.addEventListener("click", (e) => {
+  if (e.target === detailModal) closeModal();
+});
+
+function attachCardClickHandler(containerEl) {
+  containerEl.addEventListener("click", (e) => {
+    const card = e.target.closest(".notice-card");
+    if (!card) return;
+    openModal(card.dataset.bidno);
+  });
+}
+[listEl, closedListEl, todayList, extendedList, dueSoonList].forEach(attachCardClickHandler);
 
 function renderSection(sectionEl, listEl, items) {
   if (items.length === 0) {
@@ -131,6 +181,7 @@ const q = query(collection(db, "notices"), orderBy("closeAt", "asc"));
 
 onSnapshot(q, (snapshot) => {
   allNotices = snapshot.docs.map((doc) => doc.data());
+  noticesById = new Map(allNotices.map((n) => [n.bidNtceNo, n]));
   render();
 });
 
