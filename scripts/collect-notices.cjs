@@ -1,17 +1,17 @@
 /**
  * 부산지역 공기업/공공기관 사업공고 자동 수집 스크립트 (GitHub Actions용)
  *
- * Firebase Cloud Functions(구글 클라우드 IP)에서 나라장터 API 호출이 계속
- * 500 "Unexpected errors"로 차단되어, 다른 네트워크 경로(GitHub Actions)에서
- * 실행하도록 옮긴 버전입니다. 로직은 기존 functions/index.js와 동일합니다.
+ * 일반 HTTP 클라이언트(fetch/https)로는 나라장터 API가 계속 500 "Unexpected errors"를
+ * 반환해서(WAF가 비브라우저 요청을 차단하는 것으로 추정), Puppeteer로 실제 Chromium
+ * 브라우저를 띄워 요청하도록 변경한 버전입니다.
  *
  * 필요한 환경변수:
  *   NARA_API_KEY              : data.go.kr 나라장터 입찰공고정보서비스 인증키
  *   FIREBASE_SERVICE_ACCOUNT  : Firebase 서비스 계정 키(JSON) 전체 내용
  */
 
-const https = require("https");
 const admin = require("firebase-admin");
+const puppeteer = require("puppeteer");
 
 const NARA_API_KEY = process.env.NARA_API_KEY;
 const SERVICE_ACCOUNT_JSON = process.env.FIREBASE_SERVICE_ACCOUNT;
@@ -73,30 +73,6 @@ function toNoticeDoc(item, type) {
   };
 }
 
-function httpsGetJson(url) {
-  return new Promise((resolve, reject) => {
-    https
-      .get(
-        url,
-        {
-          headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-            Accept: "application/json",
-            "Accept-Encoding": "identity",
-            Connection: "close",
-          },
-        },
-        (res) => {
-          let data = "";
-          res.setEncoding("utf8");
-          res.on("data", (chunk) => (data += chunk));
-          res.on("end", () => resolve({ status: res.statusCode, body: data }));
-        }
-      )
-      .on("error", reject);
-  });
-}
-
 function todayStr() {
   const d = new Date();
   const yyyy = d.getFullYear();
@@ -109,19 +85,22 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function fetchOperation(op) {
+async function fetchOperation(page, op) {
   const url = `${BASE_URL}/${op.path}?serviceKey=${NARA_API_KEY}&pageNo=1&numOfRows=100&type=json&inqryDiv=1&inqryBgnDt=${todayStr()}0000&inqryEndDt=${todayStr()}2359`;
 
-  const { status, body } = await httpsGetJson(url);
+  const response = await page.goto(url, { waitUntil: "networkidle0", timeout: 30000 });
+  const status = response.status();
+  const bodyText = await page.evaluate(() => document.body.innerText);
+
   if (status !== 200) {
-    console.error(`나라장터 API 호출 실패 (${op.type}) ${status}`, body.slice(0, 500));
+    console.error(`나라장터 API 호출 실패 (${op.type}) ${status}`, bodyText.slice(0, 500));
     return [];
   }
   let data;
   try {
-    data = JSON.parse(body);
+    data = JSON.parse(bodyText);
   } catch (e) {
-    console.error(`나라장터 API 응답 파싱 실패 (${op.type})`, body.slice(0, 500));
+    console.error(`나라장터 API 응답 파싱 실패 (${op.type})`, bodyText.slice(0, 500));
     return [];
   }
   const items = data?.response?.body?.items || [];
@@ -129,13 +108,24 @@ async function fetchOperation(op) {
 }
 
 async function main() {
+  const browser = await puppeteer.launch({
+    headless: "new",
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  });
+  const page = await browser.newPage();
+  await page.setUserAgent(
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+  );
+
   const notices = [];
   for (const op of OPERATIONS) {
-    const result = await fetchOperation(op);
+    const result = await fetchOperation(page, op);
     notices.push(...result);
     console.log(`${op.type} 조회 완료: ${result.length}건`);
-    await sleep(400);
+    await sleep(500);
   }
+
+  await browser.close();
 
   if (notices.length === 0) {
     console.log("신규/해당 공고 없음");
