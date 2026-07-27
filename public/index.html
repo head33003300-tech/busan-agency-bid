@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>부산 공공기관 사업공고 모니터링</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <h1>부산지역 공기업·공공기관 사업공고</h1>
+    <p class="sub">나라장터 기반 실시간 모니터링 (자동 수집)</p>
+  </header>
+
+  <main>
+    <section class="filters">
+      <input id="searchInput" type="text" placeholder="공고명 / 기관명 검색" />
+      <select id="typeFilter">
+        <option value="">전체 업무구분</option>
+        <option value="물품">물품</option>
+        <option value="공사">공사</option>
+        <option value="용역">용역</option>
+      </select>
+      <select id="regionFilter">
+        <option value="">전체 지역구분</option>
+        <option value="부산제한">부산제한</option>
+        <option value="전국(제한없음)">전국(제한없음)</option>
+      </select>
+    </section>
+
+    <section id="noticeList" class="notice-list">
+      <!-- app.js가 여기에 공고 카드를 렌더링 -->
+      <p class="loading">불러오는 중...</p>
+    </section>
+  </main>
+
+  <footer>
+    <p>데이터 출처: 나라장터(조달청) 공공데이터포털 오픈API · 10분 간격 자동 갱신</p>
+  </footer>
+
+  <script type="module" src="firebase-config.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,82 @@
+:root {
+  --primary: #1a56db;
+  --bg: #f7f8fa;
+  --card-bg: #ffffff;
+  --border: #e5e7eb;
+  --text: #1f2937;
+  --muted: #6b7280;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Pretendard", "Noto Sans KR", -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.site-header {
+  padding: 32px 20px 20px;
+  text-align: center;
+}
+
+.site-header h1 { margin: 0 0 6px; font-size: 22px; }
+.site-header .sub { margin: 0; color: var(--muted); font-size: 14px; }
+
+main { max-width: 860px; margin: 0 auto; padding: 0 16px 60px; }
+
+.filters {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.filters input, .filters select {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.filters input { flex: 1; }
+
+.notice-list { display: flex; flex-direction: column; gap: 10px; }
+
+.notice-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.notice-card .badge {
+  display: inline-block;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: var(--primary);
+  margin-right: 6px;
+}
+
+.notice-card .badge.new { background: #fee2e2; color: #dc2626; }
+
+.notice-card h3 { margin: 8px 0 4px; font-size: 16px; }
+
+.notice-card .meta {
+  font-size: 13px;
+  color: var(--muted);
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.loading, .empty { text-align: center; color: var(--muted); padding: 40px 0; }
+
+footer {
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 20px;
+}
