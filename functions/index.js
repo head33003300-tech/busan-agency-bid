@@ -69,9 +69,16 @@ function toNoticeDoc(item, type) {
 async function fetchOperation(op, apiKey) {
   const url = `${BASE_URL}/${op.path}?serviceKey=${apiKey}&pageNo=1&numOfRows=100&type=json&inqryDiv=1&inqryBgnDt=${todayStr()}0000&inqryEndDt=${todayStr()}2359`;
 
-  const res = await fetch(url);
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+      Accept: "application/json",
+    },
+  });
   if (!res.ok) {
-    logger.error(`나라장터 API 호출 실패 (${op.type})`, res.status);
+    const bodyText = await res.text().catch(() => "");
+    logger.error(`나라장터 API 호출 실패 (${op.type}) ${res.status}`, bodyText.slice(0, 500));
     return [];
   }
   const data = await res.json();
