@@ -20,17 +20,14 @@ const db = getFirestore();
 // ── 설정 ──────────────────────────────────────────────
 const BASE_URL = "https://apis.data.go.kr/1230000/BidPublicInfoService";
 
-// 업무구분별 오퍼레이션 (나라장터 입찰공고정보서비스 - 입찰공고목록 조회)
 const OPERATIONS = [
   { type: "물품", path: "getBidPblancListInfoThng" },
   { type: "공사", path: "getBidPblancListInfoCnstwk" },
   { type: "용역", path: "getBidPblancListInfoServc" },
 ];
 
-// 부산 판별 키워드
 const BUSAN_KEYWORDS = ["부산", "Busan", "부산광역시", "부산시"];
 
-// ── 유틸 ──────────────────────────────────────────────
 function isBusanRelated(item) {
   const participationRegion =
     (item.prtcptPsblRgnNm || "") + "" + (item.rgnLmtBidLocplcJdgmBssNm || "");
@@ -94,6 +91,10 @@ function todayStr() {
   return `${yyyy}${mm}${dd}`;
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 // ── 메인 스케줄 함수: 10분 간격 실행 ──────────────────────
 exports.collectNaraNotices = onSchedule(
   {
@@ -109,8 +110,12 @@ exports.collectNaraNotices = onSchedule(
       return;
     }
 
-    const results = await Promise.all(OPERATIONS.map((op) => fetchOperation(op, apiKey)));
-    const notices = results.flat();
+    const notices = [];
+    for (const op of OPERATIONS) {
+      const result = await fetchOperation(op, apiKey);
+      notices.push(...result);
+      await sleep(400);
+    }
 
     if (notices.length === 0) {
       logger.info("신규/해당 공고 없음");
