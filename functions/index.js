@@ -18,7 +18,6 @@ initializeApp();
 const db = getFirestore();
 
 // ── 설정 ──────────────────────────────────────────────
-const NARA_API_KEY = process.env.NARA_API_KEY;
 const BASE_URL = "https://apis.data.go.kr/1230000/BidPublicInfoService";
 
 // 업무구분별 오퍼레이션 (나라장터 입찰공고정보서비스 - 입찰공고목록 조회)
@@ -32,8 +31,6 @@ const OPERATIONS = [
 const BUSAN_KEYWORDS = ["부산", "Busan", "부산광역시", "부산시"];
 
 // ── 유틸 ──────────────────────────────────────────────
-// "참여 가능한 기업의 소재지(참가가능지역)"가 부산이거나, 지역제한이 아예 없는(전국 대상)
-// 공고를 포함함 (전국 대상 공고는 부산 기업도 참여 가능하므로 포함)
 function isBusanRelated(item) {
   const participationRegion =
     (item.prtcptPsblRgnNm || "") + "" + (item.rgnLmtBidLocplcJdgmBssNm || "");
@@ -53,25 +50,25 @@ function toNoticeDoc(item, type) {
       : "부산제한";
 
   return {
-    bidNtceNo: item.bidNtceNo || null, // 입찰공고번호 (고유키로 사용)
-    type, // 물품/공사/용역
+    bidNtceNo: item.bidNtceNo || null,
+    type,
     title: item.bidNtceNm || "",
     org: item.ntceInsttNm || item.dminsttNm || "",
     region: item.prtcptPsblRgnNm || "",
-    regionScope, // "부산제한" | "전국(제한없음)"
+    regionScope,
     bidMethod: item.bidMethdNm || "",
     postedAt: item.bidNtceDate || null,
     closeAt: item.bidClseDate || null,
     baseAmount: item.presmptPrce || null,
     detailUrl: item.bidNtceDtlUrl || null,
     source: "naraTerm-api",
-    isToday: false, // 게시 화면에서 신규 표시용 플래그, 갱신 로직에서 세팅
+    isToday: false,
     updatedAt: new Date().toISOString(),
   };
 }
 
-async function fetchOperation(op) {
-  const url = `${BASE_URL}/${op.path}?serviceKey=${NARA_API_KEY}&pageNo=1&numOfRows=100&type=json&inqryDiv=1&inqryBgnDt=${todayStr()}0000&inqryEndDt=${todayStr()}2359`;
+async function fetchOperation(op, apiKey) {
+  const url = `${BASE_URL}/${op.path}?serviceKey=${apiKey}&pageNo=1&numOfRows=100&type=json&inqryDiv=1&inqryBgnDt=${todayStr()}0000&inqryEndDt=${todayStr()}2359`;
 
   const res = await fetch(url);
   if (!res.ok) {
@@ -97,14 +94,16 @@ exports.collectNaraNotices = onSchedule(
     schedule: "every 10 minutes",
     timeZone: "Asia/Seoul",
     region: "asia-northeast3",
+    secrets: ["NARA_API_KEY"],
   },
   async () => {
-    if (!NARA_API_KEY) {
+    const apiKey = process.env.NARA_API_KEY;
+    if (!apiKey) {
       logger.error("NARA_API_KEY 환경변수가 설정되지 않았습니다.");
       return;
     }
 
-    const results = await Promise.all(OPERATIONS.map(fetchOperation));
+    const results = await Promise.all(OPERATIONS.map((op) => fetchOperation(op, apiKey)));
     const notices = results.flat();
 
     if (notices.length === 0) {
