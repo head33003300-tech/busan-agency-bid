@@ -153,12 +153,13 @@ exports.collectNaraNotices = onSchedule(
 
       let extra;
       if (!existing) {
-        extra = { firstSeenAt: today, isExtended: false };
+        extra = { firstSeenAt: today, firstSeenTime: new Date().toISOString(), isExtended: false };
       } else {
         const closeChanged =
           existing.closeAt && notice.closeAt && existing.closeAt !== notice.closeAt;
         extra = {
           firstSeenAt: existing.firstSeenAt || today,
+          firstSeenTime: existing.firstSeenTime || new Date().toISOString(),
           isExtended: !!existing.isExtended || !!closeChanged,
         };
       }

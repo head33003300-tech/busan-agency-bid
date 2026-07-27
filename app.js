@@ -42,12 +42,21 @@ function daysUntilClose(closeAt) {
   return Math.round((close - now) / 86400000);
 }
 
+function formatAddedTime(isoString) {
+  if (!isoString) return "";
+  const d = new Date(isoString);
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
 function cardHtml(n) {
+  const isToday = n.firstSeenAt === todayStr();
   return `
     <article class="notice-card">
       <span class="badge">${n.type || "기타"}</span>
       ${n.regionScope ? `<span class="badge">${n.regionScope}</span>` : ""}
-      ${n.firstSeenAt === todayStr() ? '<span class="badge new">오늘신규</span>' : ""}
+      ${isToday ? `<span class="badge new">오늘신규${n.firstSeenTime ? ` · ${formatAddedTime(n.firstSeenTime)} 추가` : ""}</span>` : ""}
       ${n.isExtended ? '<span class="badge new">연장</span>' : ""}
       <h3>${n.detailUrl ? `<a href="${n.detailUrl}" target="_blank" rel="noopener">${n.title}</a>` : n.title}</h3>
       <div class="meta">
