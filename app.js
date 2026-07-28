@@ -1,6 +1,7 @@
 import { app, db } from "./firebase-config.js";
 import {
   collection,
+  deleteDoc,
   doc,
   onSnapshot,
   orderBy,
@@ -8,6 +9,7 @@ import {
   setDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
+  deleteToken,
   getMessaging,
   getToken,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
@@ -324,12 +326,12 @@ simpleTypeFilter.addEventListener("change", render);
 recommendCountInput.addEventListener("input", () => {
   const raw = recommendCountInput.value.trim();
   const n = Number(raw);
-  if (raw === "" || !Number.isInteger(n) || n < 1 || n > 999) {
-    recommendCountMsg.textContent = "1~999 사이의 숫자를 입력해주세요.";
-    return;
+  if (raw === "" || !Number.isInteger(n) || n < 1) {
+    recommendCountMsg.textContent = "숫자를 입력해주세요.";
+    return; // 유효하지 않으면 목록은 이전 값 기준으로 유지
   }
   recommendCountMsg.textContent = "";
-  recommendCount = n;
+  recommendCount = n; // 실제 표시는 "현재 신청 가능한 사업 수"를 넘지 않게 자동으로 잘림
   render();
 });
 
@@ -366,9 +368,60 @@ window.addEventListener("appinstalled", () => {
   if (installBtn) installBtn.style.display = "none";
 });
 
+// ── 새 공고 알림 받기/해제 ─────────────────────────────
 const VAPID_KEY =
   "BC3HRjI4WdXHRPZG6Cy4iOGkG_8NIky_EKDHiZNZ_5QycROvJMyW9opS_tdTgUZOhKTbAgoyEk2mg7wVGX9Heyk";
 const notifyBtn = document.getElementById("notifyBtn");
+const SUBSCRIBED_LABEL = "🔕 알림 해제하기";
+const UNSUBSCRIBED_LABEL = "🔔 새 공고 알림 받기";
+
+// 이전에 이 브라우저에서 구독한 적 있으면 버튼 상태 복원
+let savedToken = localStorage.getItem("fcmToken");
+if (savedToken && notifyBtn) {
+  notifyBtn.textContent = SUBSCRIBED_LABEL;
+}
+
+async function subscribeToNotifications() {
+  const permission = await Notification.requestPermission();
+  if (permission !== "granted") {
+    alert("알림 권한이 허용되지 않았습니다.");
+    return;
+  }
+  const registration =
+    swRegistration ||
+    (await navigator.serviceWorker.register("/firebase-messaging-sw.js"));
+  await navigator.serviceWorker.ready;
+  const messaging = getMessaging(app);
+  const token = await getToken(messaging, {
+    vapidKey: VAPID_KEY,
+    serviceWorkerRegistration: registration,
+  });
+  if (!token) {
+    alert("알림 등록에 실패했습니다. 잠시 후 다시 시도해주세요.");
+    return;
+  }
+  await setDoc(doc(db, "subscribers", token), {
+    token,
+    subscribedAt: new Date().toISOString(),
+  });
+  localStorage.setItem("fcmToken", token);
+  notifyBtn.textContent = SUBSCRIBED_LABEL;
+}
+
+async function unsubscribeFromNotifications() {
+  const token = localStorage.getItem("fcmToken");
+  if (token) {
+    await deleteDoc(doc(db, "subscribers", token)).catch(() => {});
+  }
+  try {
+    const messaging = getMessaging(app);
+    await deleteToken(messaging);
+  } catch (err) {
+    // 이미 만료된 토큰 등은 무시
+  }
+  localStorage.removeItem("fcmToken");
+  notifyBtn.textContent = UNSUBSCRIBED_LABEL;
+}
 
 if (notifyBtn) {
   notifyBtn.addEventListener("click", async () => {
@@ -376,34 +429,19 @@ if (notifyBtn) {
       alert("이 브라우저는 알림 기능을 지원하지 않습니다.");
       return;
     }
+    notifyBtn.disabled = true;
     try {
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") {
-        alert("알림 권한이 허용되지 않았습니다.");
-        return;
+      const isSubscribed = notifyBtn.textContent === SUBSCRIBED_LABEL;
+      if (isSubscribed) {
+        await unsubscribeFromNotifications();
+      } else {
+        await subscribeToNotifications();
       }
-      const registration =
-        swRegistration ||
-        (await navigator.serviceWorker.register("/firebase-messaging-sw.js"));
-      await navigator.serviceWorker.ready;
-      const messaging = getMessaging(app);
-      const token = await getToken(messaging, {
-        vapidKey: VAPID_KEY,
-        serviceWorkerRegistration: registration,
-      });
-      if (!token) {
-        alert("알림 등록에 실패했습니다. 잠시 후 다시 시도해주세요.");
-        return;
-      }
-      await setDoc(doc(db, "subscribers", token), {
-        token,
-        subscribedAt: new Date().toISOString(),
-      });
-      notifyBtn.textContent = "🔔 알림 받는 중";
-      notifyBtn.disabled = true;
     } catch (err) {
       console.error(err);
       alert("알림 설정 중 오류가 발생했습니다.");
+    } finally {
+      notifyBtn.disabled = false;
     }
   });
 }
