@@ -24,13 +24,9 @@ const db = getFirestore();
 // ⚠️ 공식 참고문서 기준 정확한 경로: /1230000/ad/BidPublicInfoService (ad 누락 주의)
 const BASE_URL = "https://apis.data.go.kr/1230000/ad/BidPublicInfoService";
 
-// 업무구분별 오퍼레이션 (나라장터검색조건에 의한 입찰공고조회)
+// 업무구분별 오퍼레이션 (나라장터검색조건에 의한 입찰공고조회) — 지금은 용역만 수집
 const OPERATIONS = [
-  { type: "물품", path: "getBidPblancListInfoThngPPSSrch" },
-  { type: "공사", path: "getBidPblancListInfoCnstwkPPSSrch" },
   { type: "용역", path: "getBidPblancListInfoServcPPSSrch" },
-  { type: "외자", path: "getBidPblancListInfoFrgcptPPSSrch" },
-  { type: "기타", path: "getBidPblancListInfoEtcPPSSrch" },
 ];
 
 const BUSAN_KEYWORDS = [
@@ -118,8 +114,11 @@ function httpsGetJson(url) {
   });
 }
 
+// ⚠️ 임시 백필(과거 놓친 공고 소급 수집)용 — 1회 실행 후 반드시 todayStr()로 되돌릴 것
+const BACKFILL_START = "20260628"; // 최근 30일 정도로 넉넉히 잡음, 필요시 조정
+
 async function fetchOperation(op, apiKey) {
-  const url = `${BASE_URL}/${op.path}?ServiceKey=${apiKey}&pageNo=1&numOfRows=300&type=json&inqryDiv=1&inqryBgnDt=${todayStr()}0000&inqryEndDt=${todayStr()}2359`;
+  const url = `${BASE_URL}/${op.path}?ServiceKey=${apiKey}&pageNo=1&numOfRows=300&type=json&inqryDiv=1&inqryBgnDt=${BACKFILL_START}0000&inqryEndDt=${todayStr()}2359`;
 
   const { status, body } = await httpsGetJson(url);
   if (status !== 200) {
