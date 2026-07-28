@@ -10,8 +10,10 @@
  */
 
 const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
+const { getMessaging } = require("firebase-admin/messaging");
 const logger = require("firebase-functions/logger");
 
 initializeApp();
@@ -39,11 +41,9 @@ function toNoticeDoc(item, type) {
     title: item.bidNtceNm || "",
     org: item.ntceInsttNm || item.dminsttNm || "",
     region: item.prtcptPsblRgnNm || "",
-    regionScope: "부산제한", // prtcptLmtRgnCd=26으로 이미 부산 제한 공고만 조회했으므로 고정
+    regionScope: "부산제한",
     bidMethod: item.bidMethdNm || "",
     postedAt: item.bidNtceDt || null,
-    // 입찰마감일시(bidClseDt)가 없는 공고(주로 협상에 의한 계약)는
-    // 개찰일시(opengDt)를 대신 마감 판단 기준으로 사용
     closeAt: item.bidClseDt || item.opengDt || null,
     baseAmount: item.presmptPrce || null,
     detailUrl: item.bidNtceDtlUrl || null,
@@ -131,7 +131,6 @@ exports.collectNaraNotices = onSchedule(
       await sleep(400);
     }
 
-    // 조회할 때마다(신규 공고 유무와 무관하게) 마지막 조회 시각 기록
     await db.collection("meta").doc("status").set(
       {
         lastCheckedAt: new Date().toISOString(),
@@ -178,5 +177,45 @@ exports.collectNaraNotices = onSchedule(
     await batch.commit();
 
     logger.info(`${notices.length}건 처리 완료`);
+  }
+);
+
+// ── 새 공고가 Firestore에 새로 생성될 때마다 구독자들에게 푸시 알림 발송 ──
+exports.notifyNewNotice = onDocumentCreated(
+  { document: "notices/{noticeId}", region: "asia-northeast3" },
+  async (event) => {
+    const notice = event.data?.data();
+    if (!notice) return;
+
+    const subsSnap = await db.collection("subscribers").get();
+    if (subsSnap.empty) {
+      logger.info("등록된 알림 구독자가 없음");
+      return;
+    }
+    const tokens = subsSnap.docs.map((d) => d.id);
+
+    const message = {
+      notification: {
+        title: "부산 신규 공고 등록",
+        body: notice.title || "새 공고가 등록되었습니다.",
+      },
+      webpush: {
+        fcmOptions: {
+          link: notice.detailUrl || "https://busan-agency-bid.pages.dev",
+        },
+      },
+      tokens,
+    };
+
+    const res = await getMessaging().sendEachForMulticast(message);
+    logger.info(`알림 발송: 성공 ${res.successCount} / 실패 ${res.failureCount}`);
+
+    const invalidTokens = [];
+    res.responses.forEach((r, i) => {
+      if (!r.success) invalidTokens.push(tokens[i]);
+    });
+    await Promise.all(
+      invalidTokens.map((t) => db.collection("subscribers").doc(t).delete())
+    );
   }
 );

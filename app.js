@@ -1,11 +1,16 @@
-import { db } from "./firebase-config.js";
+import { app, db } from "./firebase-config.js";
 import {
   collection,
   doc,
   onSnapshot,
   orderBy,
   query,
+  setDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import {
+  getMessaging,
+  getToken,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
 
 const listEl = document.getElementById("noticeList");
 const closedListEl = document.getElementById("closedList");
@@ -200,3 +205,45 @@ onSnapshot(doc(db, "meta", "status"), (snap) => {
 
 searchInput.addEventListener("input", render);
 typeFilter.addEventListener("change", render);
+
+// ── 새 공고 알림 받기 ──────────────────────────────────
+const VAPID_KEY =
+  "BC3HRjI4WdXHRPZG6Cy4iOGkG_8NIky_EKDHiZNZ_5QycROvJMyW9opS_tdTgUZOhKTbAgoyEk2mg7wVGX9Heyk";
+const notifyBtn = document.getElementById("notifyBtn");
+
+if (notifyBtn) {
+  notifyBtn.addEventListener("click", async () => {
+    if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+      alert("이 브라우저는 알림 기능을 지원하지 않습니다.");
+      return;
+    }
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        alert("알림 권한이 허용되지 않았습니다.");
+        return;
+      }
+      const registration = await navigator.serviceWorker.register(
+        "/firebase-messaging-sw.js"
+      );
+      const messaging = getMessaging(app);
+      const token = await getToken(messaging, {
+        vapidKey: VAPID_KEY,
+        serviceWorkerRegistration: registration,
+      });
+      if (!token) {
+        alert("알림 등록에 실패했습니다. 잠시 후 다시 시도해주세요.");
+        return;
+      }
+      await setDoc(doc(db, "subscribers", token), {
+        token,
+        subscribedAt: new Date().toISOString(),
+      });
+      notifyBtn.textContent = "🔔 알림 받는 중";
+      notifyBtn.disabled = true;
+    } catch (err) {
+      console.error(err);
+      alert("알림 설정 중 오류가 발생했습니다.");
+    }
+  });
+}

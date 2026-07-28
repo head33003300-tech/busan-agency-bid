@@ -9,5 +9,9 @@ service cloud.firestore {
       allow read: if true;   // 공개 페이지: 마지막 조회 시각 등 조회 가능
       allow write: if false; // 클라이언트에서는 쓰기 불가 (Cloud Functions는 admin 권한이라 규칙과 무관하게 항상 가능)
     }
+    match /subscribers/{tokenId} {
+      allow read: if false;  // 다른 사람 토큰 목록은 아무도 조회 못하게 차단
+      allow write: if true;  // 방문자가 본인 브라우저 토큰을 등록할 수 있게 허용
+    }
   }
 }

@@ -82,6 +82,23 @@ body {
   position: relative;
 }
 
+.notify-btn {
+  display: block;
+  margin: 14px auto 0;
+  padding: 9px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.notify-btn:hover { background: rgba(255, 255, 255, 0.16); }
+.notify-btn:disabled { opacity: 0.6; cursor: default; }
+
 main { max-width: 880px; margin: 0 auto; padding: 0 16px 60px; }
 
 main h2 {
