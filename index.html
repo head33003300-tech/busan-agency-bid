@@ -18,48 +18,94 @@
     <span class="mark">⚓ Busan Procurement Watch</span>
     <h1>부산지역 공기업·공공기관 사업공고</h1>
     <p class="sub">나라장터 기반 실시간 모니터링 (자동 수집)</p>
-    <a href="#allList" class="jump-link">전체 공고 목록 · 검색으로 바로가기 ↓</a>
     <button id="notifyBtn" class="notify-btn">🔔 새 공고 알림 받기</button>
     <button id="installBtn" class="notify-btn" style="display:none;">📲 앱으로 설치하기</button>
   </header>
 
   <main>
-    <section id="todaySection" class="highlight-section" style="display:none;">
-      <h2>🔔 오늘 신규 추가</h2>
-      <div id="todayList" class="notice-list"></div>
+    <!-- ── 홈 화면: 타일 메뉴 ── -->
+    <section id="homeView">
+      <div class="tile-grid">
+        <button class="tile" data-view="dashboard">
+          <span class="tile-icon">📊</span>
+          <span class="tile-label">대시보드</span>
+        </button>
+        <button class="tile" data-view="open">
+          <span class="tile-icon">✅</span>
+          <span class="tile-label">현재 신청 가능 사업</span>
+          <span class="tile-count" id="countOpen"></span>
+        </button>
+        <button class="tile" data-view="dueSoon">
+          <span class="tile-icon">⏰</span>
+          <span class="tile-label">마감 임박 사업</span>
+          <span class="tile-count" id="countDueSoon"></span>
+        </button>
+        <button class="tile" data-view="today">
+          <span class="tile-icon">🔔</span>
+          <span class="tile-label">오늘 추가된 사업</span>
+          <span class="tile-count" id="countToday"></span>
+        </button>
+        <button class="tile" data-view="closed">
+          <span class="tile-icon">🗂</span>
+          <span class="tile-label">종료된 사업</span>
+          <span class="tile-count" id="countClosed"></span>
+        </button>
+        <button class="tile" data-view="recommend">
+          <span class="tile-icon">💰</span>
+          <span class="tile-label">고액 사업 TOP</span>
+        </button>
+      </div>
     </section>
 
-    <section id="extendedSection" class="highlight-section" style="display:none;">
-      <h2>📌 기간 연장 공고</h2>
-      <div id="extendedList" class="notice-list"></div>
-    </section>
+    <!-- ── 서브 화면 (타일 클릭 시 전환) ── -->
+    <section id="subView" style="display:none;">
+      <button id="backBtn" class="back-btn">← 처음으로</button>
+      <h2 id="subViewTitle" class="sub-view-title"></h2>
 
-    <section id="dueSoonSection" class="highlight-section" style="display:none;">
-      <h2>⏰ 마감 3일 이내</h2>
-      <div id="dueSoonList" class="notice-list"></div>
-    </section>
+      <!-- 대시보드: 기존 전체 화면 그대로 -->
+      <div id="dashboardView" style="display:none;">
+        <section id="todaySection" class="highlight-section" style="display:none;">
+          <h2>🔔 오늘 신규 추가</h2>
+          <div id="todayList" class="notice-list"></div>
+        </section>
 
-    <h2 id="allList">전체 공고 목록</h2>
-    <section class="filters">
-      <input id="searchInput" type="text" placeholder="공고명 / 기관명 검색" />
-      <select id="typeFilter">
-        <option value="">전체 업무구분</option>
-        <option value="물품">물품</option>
-        <option value="공사">공사</option>
-        <option value="용역">용역</option>
-        <option value="외자">외자</option>
-        <option value="기타">기타</option>
-      </select>
-    </section>
+        <section id="extendedSection" class="highlight-section" style="display:none;">
+          <h2>📌 기간 연장 공고</h2>
+          <div id="extendedList" class="notice-list"></div>
+        </section>
 
-    <section id="noticeList" class="notice-list">
-      <!-- app.js가 여기에 공고 카드를 렌더링 -->
-      <p class="loading">불러오는 중...</p>
-    </section>
+        <section id="dueSoonSection" class="highlight-section" style="display:none;">
+          <h2>⏰ 마감 3일 이내</h2>
+          <div id="dueSoonList" class="notice-list"></div>
+        </section>
 
-    <h2>마감된 공고</h2>
-    <section id="closedList" class="notice-list closed-list">
-      <p class="empty">마감된 공고가 없습니다.</p>
+        <h2 id="allList">전체 공고 목록</h2>
+        <section class="filters">
+          <input id="searchInput" type="text" placeholder="공고명 / 기관명 검색" />
+          <select id="typeFilter">
+            <option value="">전체 업무구분</option>
+            <option value="물품">물품</option>
+            <option value="공사">공사</option>
+            <option value="용역">용역</option>
+            <option value="외자">외자</option>
+            <option value="기타">기타</option>
+          </select>
+        </section>
+
+        <section id="noticeList" class="notice-list">
+          <p class="loading">불러오는 중...</p>
+        </section>
+
+        <h2>마감된 공고 (최근 1일)</h2>
+        <section id="closedList" class="notice-list closed-list">
+          <p class="empty">마감된 공고가 없습니다.</p>
+        </section>
+      </div>
+
+      <!-- 단일 목록형 서브 화면 (신청가능/마감임박/오늘추가/종료/추천) -->
+      <div id="simpleListView" style="display:none;">
+        <div id="simpleList" class="notice-list"></div>
+      </div>
     </section>
   </main>
 

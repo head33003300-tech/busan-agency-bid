@@ -12,6 +12,20 @@ import {
   getToken,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
 
+const homeView = document.getElementById("homeView");
+const subView = document.getElementById("subView");
+const backBtn = document.getElementById("backBtn");
+const subViewTitle = document.getElementById("subViewTitle");
+const dashboardView = document.getElementById("dashboardView");
+const simpleListView = document.getElementById("simpleListView");
+const simpleListEl = document.getElementById("simpleList");
+const tiles = document.querySelectorAll(".tile");
+
+const countOpenEl = document.getElementById("countOpen");
+const countDueSoonEl = document.getElementById("countDueSoon");
+const countTodayEl = document.getElementById("countToday");
+const countClosedEl = document.getElementById("countClosed");
+
 const listEl = document.getElementById("noticeList");
 const closedListEl = document.getElementById("closedList");
 const searchInput = document.getElementById("searchInput");
@@ -28,8 +42,19 @@ const detailModal = document.getElementById("detailModal");
 const modalBody = document.getElementById("modalBody");
 const modalClose = document.getElementById("modalClose");
 
+const CLOSED_WINDOW_DAYS = 1;
+
 let allNotices = [];
 let noticesById = new Map();
+let currentView = null;
+
+const VIEW_TITLES = {
+  open: "✅ 현재 신청 가능 사업",
+  dueSoon: "⏰ 마감 임박 사업",
+  today: "🔔 오늘 추가된 사업",
+  closed: "🗂 종료된 사업 (최근 1일)",
+  recommend: "💰 고액 사업 TOP",
+};
 
 function todayStr() {
   const d = new Date();
@@ -122,7 +147,9 @@ function attachCardClickHandler(containerEl) {
     openModal(card.dataset.bidno);
   });
 }
-[listEl, closedListEl, todayList, extendedList, dueSoonList].forEach(attachCardClickHandler);
+[listEl, closedListEl, todayList, extendedList, dueSoonList, simpleListEl].forEach(
+  attachCardClickHandler
+);
 
 function renderSection(sectionEl, listEl, items) {
   if (items.length === 0) {
@@ -133,17 +160,42 @@ function renderSection(sectionEl, listEl, items) {
   listEl.innerHTML = items.map(cardHtml).join("");
 }
 
-function render() {
-  const keyword = searchInput.value.trim().toLowerCase();
-  const type = typeFilter.value;
+function showHome() {
+  currentView = null;
+  homeView.style.display = "block";
+  subView.style.display = "none";
+}
 
+function showView(view) {
+  currentView = view;
+  homeView.style.display = "none";
+  subView.style.display = "block";
+
+  if (view === "dashboard") {
+    subViewTitle.textContent = "📊 대시보드";
+    dashboardView.style.display = "block";
+    simpleListView.style.display = "none";
+  } else {
+    subViewTitle.textContent = VIEW_TITLES[view] || "";
+    dashboardView.style.display = "none";
+    simpleListView.style.display = "block";
+  }
+  render();
+}
+
+tiles.forEach((tile) => {
+  tile.addEventListener("click", () => showView(tile.dataset.view));
+});
+backBtn.addEventListener("click", showHome);
+
+function render() {
   const openNotices = allNotices.filter((n) => {
     const d = daysUntilClose(n.closeAt);
     return d === null || d >= 0;
   });
   const closedNotices = allNotices.filter((n) => {
     const d = daysUntilClose(n.closeAt);
-    return d !== null && d < 0;
+    return d !== null && d < 0 && d >= -CLOSED_WINDOW_DAYS;
   });
 
   const todayItems = openNotices.filter((n) => n.firstSeenAt === todayStr());
@@ -152,11 +204,28 @@ function render() {
     const d = daysUntilClose(n.closeAt);
     return d !== null && d >= 0 && d <= 3;
   });
+  const recommendItems = [...openNotices]
+    .filter((n) => n.baseAmount && !Number.isNaN(Number(n.baseAmount)))
+    .sort((a, b) => Number(b.baseAmount) - Number(a.baseAmount))
+    .slice(0, 20);
+
+  const sortedClosed = [...closedNotices].sort((a, b) => {
+    const da = daysUntilClose(a.closeAt) ?? -Infinity;
+    const db_ = daysUntilClose(b.closeAt) ?? -Infinity;
+    return db_ - da;
+  });
+
+  countOpenEl.textContent = openNotices.length;
+  countDueSoonEl.textContent = dueSoonItems.length;
+  countTodayEl.textContent = todayItems.length;
+  countClosedEl.textContent = sortedClosed.length;
 
   renderSection(todaySection, todayList, todayItems);
   renderSection(extendedSection, extendedList, extendedItems);
   renderSection(dueSoonSection, dueSoonList, dueSoonItems);
 
+  const keyword = searchInput.value.trim().toLowerCase();
+  const type = typeFilter.value;
   const filtered = openNotices.filter((n) => {
     const matchesKeyword =
       !keyword ||
@@ -165,22 +234,30 @@ function render() {
     const matchesType = !type || n.type === type;
     return matchesKeyword && matchesType;
   });
-
   listEl.innerHTML =
     filtered.length === 0
       ? `<p class="empty">표시할 공고가 없습니다.</p>`
       : filtered.map(cardHtml).join("");
 
-  const sortedClosed = [...closedNotices].sort((a, b) => {
-    const da = daysUntilClose(a.closeAt) ?? -Infinity;
-    const db_ = daysUntilClose(b.closeAt) ?? -Infinity;
-    return db_ - da;
-  });
-
   closedListEl.innerHTML =
     sortedClosed.length === 0
       ? `<p class="empty">마감된 공고가 없습니다.</p>`
       : sortedClosed.map(cardHtml).join("");
+
+  const viewItemsMap = {
+    open: openNotices,
+    dueSoon: dueSoonItems,
+    today: todayItems,
+    closed: sortedClosed,
+    recommend: recommendItems,
+  };
+  if (currentView && viewItemsMap[currentView]) {
+    const items = viewItemsMap[currentView];
+    simpleListEl.innerHTML =
+      items.length === 0
+        ? `<p class="empty">표시할 공고가 없습니다.</p>`
+        : items.map(cardHtml).join("");
+  }
 }
 
 const q = query(collection(db, "notices"), orderBy("closeAt", "asc"));
@@ -206,7 +283,6 @@ onSnapshot(doc(db, "meta", "status"), (snap) => {
 searchInput.addEventListener("input", render);
 typeFilter.addEventListener("change", render);
 
-// ── 서비스워커 등록 (PWA 설치 조건 충족 + 알림 등록에 재사용) ──
 let swRegistration = null;
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker
@@ -217,7 +293,6 @@ if ("serviceWorker" in navigator) {
     .catch((err) => console.error("서비스워커 등록 실패:", err));
 }
 
-// ── 앱으로 설치하기 (PWA, 조건 충족 시에만 브라우저가 이벤트를 줌) ──
 const installBtn = document.getElementById("installBtn");
 let deferredInstallPrompt = null;
 
@@ -241,7 +316,6 @@ window.addEventListener("appinstalled", () => {
   if (installBtn) installBtn.style.display = "none";
 });
 
-// ── 새 공고 알림 받기 ──────────────────────────────────
 const VAPID_KEY =
   "BC3HRjI4WdXHRPZG6Cy4iOGkG_8NIky_EKDHiZNZ_5QycROvJMyW9opS_tdTgUZOhKTbAgoyEk2mg7wVGX9Heyk";
 const notifyBtn = document.getElementById("notifyBtn");
@@ -258,9 +332,9 @@ if (notifyBtn) {
         alert("알림 권한이 허용되지 않았습니다.");
         return;
       }
-      const registration = swRegistration || (await navigator.serviceWorker.register(
-        "/firebase-messaging-sw.js"
-      ));
+      const registration =
+        swRegistration ||
+        (await navigator.serviceWorker.register("/firebase-messaging-sw.js"));
       await navigator.serviceWorker.ready;
       const messaging = getMessaging(app);
       const token = await getToken(messaging, {
