@@ -2,7 +2,8 @@
  * 부산지역 공기업/공공기관 사업공고 자동 수집 Cloud Function
  *
  * - 나라장터 오픈API(나라장터검색조건에 의한 입찰공고조회, PPSSrch)를 주기적으로 호출
- * - API 자체의 참가제한지역코드(prtcptLmtRgnCd=26, 부산광역시) 필터로 부산 제한 공고만 조회
+ * - 발주기관명(공고기관/수요기관)에 "부산"이 포함된 공고만 필터링
+ *   (참여 가능 지역이 아니라, 발주처 자체가 부산 소재 공기업/공공기관인지 기준)
  * - Firestore 'notices' 컬렉션에 upsert (공고번호 기준 중복 방지)
  *
  * 환경변수(.env 또는 functions:config)로 다음 값을 설정해야 합니다.
@@ -23,10 +24,7 @@ const db = getFirestore();
 // ⚠️ 공식 참고문서 기준 정확한 경로: /1230000/ad/BidPublicInfoService (ad 누락 주의)
 const BASE_URL = "https://apis.data.go.kr/1230000/ad/BidPublicInfoService";
 
-// 부산광역시 참가제한지역코드 = 26 (공식 참고문서 코드표 기준)
-const BUSAN_REGION_CODE = "26";
-
-// 업무구분별 오퍼레이션 (나라장터검색조건에 의한 입찰공고조회 - 지역코드 필터 지원)
+// 업무구분별 오퍼레이션 (나라장터검색조건에 의한 입찰공고조회)
 const OPERATIONS = [
   { type: "물품", path: "getBidPblancListInfoThngPPSSrch" },
   { type: "공사", path: "getBidPblancListInfoCnstwkPPSSrch" },
@@ -35,7 +33,15 @@ const OPERATIONS = [
   { type: "기타", path: "getBidPblancListInfoEtcPPSSrch" },
 ];
 
+// 발주기관명에 이 키워드가 포함되면 "부산 소재 공기업/공공기관"으로 판별
+const BUSAN_KEYWORDS = ["부산"];
+
 // ── 유틸 ──────────────────────────────────────────────
+function isBusanAgency(item) {
+  const org = (item.ntceInsttNm || "") + "" + (item.dminsttNm || "");
+  return BUSAN_KEYWORDS.some((kw) => org.includes(kw));
+}
+
 function toNoticeDoc(item, type) {
   return {
     bidNtceNo: item.bidNtceNo || null,
@@ -43,9 +49,10 @@ function toNoticeDoc(item, type) {
     title: item.bidNtceNm || "",
     org: item.ntceInsttNm || item.dminsttNm || "",
     region: item.prtcptPsblRgnNm || "",
-    regionScope: "부산제한",
     bidMethod: item.bidMethdNm || "",
     postedAt: item.bidNtceDt || null,
+    // 입찰마감일시(bidClseDt)가 없는 공고(주로 협상에 의한 계약)는
+    // 개찰일시(opengDt)를 대신 마감 판단 기준으로 사용
     closeAt: item.bidClseDt || item.opengDt || null,
     baseAmount: item.presmptPrce || null,
     detailUrl: item.bidNtceDtlUrl || null,
@@ -84,7 +91,7 @@ function httpsGetJson(url) {
 const BACKFILL_START = "20260628"; // 최근 30일 정도로 넉넉히 잡음, 필요시 조정
 
 async function fetchOperation(op, apiKey) {
-  const url = `${BASE_URL}/${op.path}?ServiceKey=${apiKey}&pageNo=1&numOfRows=500&type=json&inqryDiv=1&inqryBgnDt=${BACKFILL_START}0000&inqryEndDt=${todayStr()}2359&prtcptLmtRgnCd=${BUSAN_REGION_CODE}`;
+  const url = `${BASE_URL}/${op.path}?ServiceKey=${apiKey}&pageNo=1&numOfRows=500&type=json&inqryDiv=1&inqryBgnDt=${BACKFILL_START}0000&inqryEndDt=${todayStr()}2359`;
 
   const { status, body } = await httpsGetJson(url);
   if (status !== 200) {
@@ -99,7 +106,7 @@ async function fetchOperation(op, apiKey) {
     return [];
   }
   const items = data?.response?.body?.items || [];
-  return items.map((item) => toNoticeDoc(item, op.type));
+  return items.filter(isBusanAgency).map((item) => toNoticeDoc(item, op.type));
 }
 
 function todayStr() {
@@ -136,6 +143,7 @@ exports.collectNaraNotices = onSchedule(
       await sleep(400);
     }
 
+    // 조회할 때마다(신규 공고 유무와 무관하게) 마지막 조회 시각 기록
     await db.collection("meta").doc("status").set(
       {
         lastCheckedAt: new Date().toISOString(),
