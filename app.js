@@ -21,6 +21,9 @@ const simpleListView = document.getElementById("simpleListView");
 const simpleListEl = document.getElementById("simpleList");
 const simpleSearchInput = document.getElementById("simpleSearchInput");
 const simpleTypeFilter = document.getElementById("simpleTypeFilter");
+const recommendControls = document.getElementById("recommendControls");
+const recommendCountInput = document.getElementById("recommendCount");
+const recommendCountMsg = document.getElementById("recommendCountMsg");
 const tiles = document.querySelectorAll(".tile");
 
 const countOpenEl = document.getElementById("countOpen");
@@ -48,7 +51,8 @@ const CLOSED_WINDOW_DAYS = 1;
 
 let allNotices = [];
 let noticesById = new Map();
-let currentView = null;
+let currentView = null; // null이면 홈 화면
+let recommendCount = 20;
 
 const VIEW_TITLES = {
   open: "✅ 현재 신청 가능 사업",
@@ -162,9 +166,6 @@ function renderSection(sectionEl, listEl, items) {
   listEl.innerHTML = items.map(cardHtml).join("");
 }
 
-// ── 화면 전환 ──────────────────────────────────────────
-// 히스토리에 상태를 남겨서, 모바일/브라우저 뒤로가기 버튼이
-// 앱을 바로 종료하지 않고 이전 화면(홈)으로 돌아가도록 함
 history.replaceState({ view: "home" }, "", location.pathname + location.search);
 
 function showHome() {
@@ -188,6 +189,9 @@ function showView(view, pushHistory = true) {
     simpleListView.style.display = "block";
     simpleSearchInput.value = "";
     simpleTypeFilter.value = "";
+    recommendControls.style.display = view === "recommend" ? "flex" : "none";
+    recommendCountInput.value = recommendCount;
+    recommendCountMsg.textContent = "";
   }
 
   if (pushHistory) {
@@ -200,7 +204,6 @@ tiles.forEach((tile) => {
   tile.addEventListener("click", () => showView(tile.dataset.view));
 });
 
-// 뒤로가기 버튼도 history.back()으로 통일 (popstate가 실제 화면 전환을 처리)
 backBtn.addEventListener("click", () => history.back());
 
 window.addEventListener("popstate", (e) => {
@@ -208,7 +211,7 @@ window.addEventListener("popstate", (e) => {
   if (!view || view === "home") {
     showHome();
   } else {
-    showView(view, false); // 히스토리에 다시 쌓지 않음(popstate로 이미 이동한 상태)
+    showView(view, false);
   }
 });
 
@@ -231,7 +234,7 @@ function render() {
   const recommendItems = [...openNotices]
     .filter((n) => n.baseAmount && !Number.isNaN(Number(n.baseAmount)))
     .sort((a, b) => Number(b.baseAmount) - Number(a.baseAmount))
-    .slice(0, 20);
+    .slice(0, recommendCount);
 
   const sortedClosed = [...closedNotices].sort((a, b) => {
     const da = daysUntilClose(a.closeAt) ?? -Infinity;
@@ -317,6 +320,18 @@ searchInput.addEventListener("input", render);
 typeFilter.addEventListener("change", render);
 simpleSearchInput.addEventListener("input", render);
 simpleTypeFilter.addEventListener("change", render);
+
+recommendCountInput.addEventListener("input", () => {
+  const raw = recommendCountInput.value.trim();
+  const n = Number(raw);
+  if (raw === "" || !Number.isInteger(n) || n < 1 || n > 999) {
+    recommendCountMsg.textContent = "1~999 사이의 숫자를 입력해주세요.";
+    return;
+  }
+  recommendCountMsg.textContent = "";
+  recommendCount = n;
+  render();
+});
 
 let swRegistration = null;
 if ("serviceWorker" in navigator) {

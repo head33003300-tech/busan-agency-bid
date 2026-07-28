@@ -167,6 +167,29 @@ body {
   margin: 14px 0 16px;
 }
 
+.recommend-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.recommend-controls input[type="number"] {
+  width: 70px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.recommend-msg {
+  color: var(--signal-due);
+  font-size: 13px;
+}
+
 main { max-width: 880px; margin: 0 auto; padding: 0 16px 60px; }
 
 main h2 {
