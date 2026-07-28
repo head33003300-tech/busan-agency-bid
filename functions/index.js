@@ -31,6 +31,8 @@ const OPERATIONS = [
   { type: "물품", path: "getBidPblancListInfoThngPPSSrch" },
   { type: "공사", path: "getBidPblancListInfoCnstwkPPSSrch" },
   { type: "용역", path: "getBidPblancListInfoServcPPSSrch" },
+  { type: "외자", path: "getBidPblancListInfoFrgcptPPSSrch" },
+  { type: "기타", path: "getBidPblancListInfoEtcPPSSrch" },
 ];
 
 // ── 유틸 ──────────────────────────────────────────────
@@ -78,8 +80,11 @@ function httpsGetJson(url) {
   });
 }
 
+// ⚠️ 임시 백필(과거 놓친 공고 소급 수집)용 — 1회 실행 후 반드시 todayStr()로 되돌릴 것
+const BACKFILL_START = "20260628"; // 최근 30일 정도로 넉넉히 잡음, 필요시 조정
+
 async function fetchOperation(op, apiKey) {
-  const url = `${BASE_URL}/${op.path}?ServiceKey=${apiKey}&pageNo=1&numOfRows=100&type=json&inqryDiv=1&inqryBgnDt=${todayStr()}0000&inqryEndDt=${todayStr()}2359&prtcptLmtRgnCd=${BUSAN_REGION_CODE}`;
+  const url = `${BASE_URL}/${op.path}?ServiceKey=${apiKey}&pageNo=1&numOfRows=500&type=json&inqryDiv=1&inqryBgnDt=${BACKFILL_START}0000&inqryEndDt=${todayStr()}2359&prtcptLmtRgnCd=${BUSAN_REGION_CODE}`;
 
   const { status, body } = await httpsGetJson(url);
   if (status !== 200) {
