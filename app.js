@@ -19,6 +19,8 @@ const subViewTitle = document.getElementById("subViewTitle");
 const dashboardView = document.getElementById("dashboardView");
 const simpleListView = document.getElementById("simpleListView");
 const simpleListEl = document.getElementById("simpleList");
+const simpleSearchInput = document.getElementById("simpleSearchInput");
+const simpleTypeFilter = document.getElementById("simpleTypeFilter");
 const tiles = document.querySelectorAll(".tile");
 
 const countOpenEl = document.getElementById("countOpen");
@@ -179,6 +181,8 @@ function showView(view) {
     subViewTitle.textContent = VIEW_TITLES[view] || "";
     dashboardView.style.display = "none";
     simpleListView.style.display = "block";
+    simpleSearchInput.value = "";
+    simpleTypeFilter.value = "";
   }
   render();
 }
@@ -252,7 +256,16 @@ function render() {
     recommend: recommendItems,
   };
   if (currentView && viewItemsMap[currentView]) {
-    const items = viewItemsMap[currentView];
+    const simpleKeyword = simpleSearchInput.value.trim().toLowerCase();
+    const simpleType = simpleTypeFilter.value;
+    const items = viewItemsMap[currentView].filter((n) => {
+      const matchesKeyword =
+        !simpleKeyword ||
+        n.title.toLowerCase().includes(simpleKeyword) ||
+        n.org.toLowerCase().includes(simpleKeyword);
+      const matchesType = !simpleType || n.type === simpleType;
+      return matchesKeyword && matchesType;
+    });
     simpleListEl.innerHTML =
       items.length === 0
         ? `<p class="empty">표시할 공고가 없습니다.</p>`
@@ -282,6 +295,8 @@ onSnapshot(doc(db, "meta", "status"), (snap) => {
 
 searchInput.addEventListener("input", render);
 typeFilter.addEventListener("change", render);
+simpleSearchInput.addEventListener("input", render);
+simpleTypeFilter.addEventListener("change", render);
 
 let swRegistration = null;
 if ("serviceWorker" in navigator) {

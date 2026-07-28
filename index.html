@@ -104,6 +104,17 @@
 
       <!-- 단일 목록형 서브 화면 (신청가능/마감임박/오늘추가/종료/추천) -->
       <div id="simpleListView" style="display:none;">
+        <section class="filters">
+          <input id="simpleSearchInput" type="text" placeholder="공고명 / 기관명 검색" />
+          <select id="simpleTypeFilter">
+            <option value="">전체 업무구분</option>
+            <option value="물품">물품</option>
+            <option value="공사">공사</option>
+            <option value="용역">용역</option>
+            <option value="외자">외자</option>
+            <option value="기타">기타</option>
+          </select>
+        </section>
         <div id="simpleList" class="notice-list"></div>
       </div>
     </section>
