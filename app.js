@@ -21,10 +21,13 @@ const subViewTitle = document.getElementById("subViewTitle");
 const dashboardView = document.getElementById("dashboardView");
 const simpleListView = document.getElementById("simpleListView");
 const simpleListEl = document.getElementById("simpleList");
+const simpleFilters = document.getElementById("simpleFilters");
 const simpleSearchInput = document.getElementById("simpleSearchInput");
 const simpleTypeFilter = document.getElementById("simpleTypeFilter");
 const recommendControls = document.getElementById("recommendControls");
+const recommendType = document.getElementById("recommendType");
 const recommendCountInput = document.getElementById("recommendCount");
+const recommendApplyBtn = document.getElementById("recommendApplyBtn");
 const recommendCountMsg = document.getElementById("recommendCountMsg");
 const tiles = document.querySelectorAll(".tile");
 
@@ -53,8 +56,10 @@ const CLOSED_WINDOW_DAYS = 1;
 
 let allNotices = [];
 let noticesById = new Map();
-let currentView = null; // null이면 홈 화면
-let recommendCount = 20;
+let currentView = null;
+let appliedRecommendCount = 20;
+let appliedRecommendType = "";
+let recommendApplied = false;
 
 const VIEW_TITLES = {
   open: "✅ 현재 신청 가능 사업",
@@ -189,11 +194,19 @@ function showView(view, pushHistory = true) {
     subViewTitle.textContent = VIEW_TITLES[view] || "";
     dashboardView.style.display = "none";
     simpleListView.style.display = "block";
-    simpleSearchInput.value = "";
-    simpleTypeFilter.value = "";
-    recommendControls.style.display = view === "recommend" ? "flex" : "none";
-    recommendCountInput.value = recommendCount;
-    recommendCountMsg.textContent = "";
+
+    if (view === "recommend") {
+      simpleFilters.style.display = "none";
+      recommendControls.style.display = "flex";
+      recommendType.value = appliedRecommendType;
+      recommendCountInput.value = appliedRecommendCount;
+      recommendCountMsg.textContent = "";
+    } else {
+      simpleFilters.style.display = "flex";
+      recommendControls.style.display = "none";
+      simpleSearchInput.value = "";
+      simpleTypeFilter.value = "";
+    }
   }
 
   if (pushHistory) {
@@ -235,8 +248,9 @@ function render() {
   });
   const recommendItems = [...openNotices]
     .filter((n) => n.baseAmount && !Number.isNaN(Number(n.baseAmount)))
+    .filter((n) => !appliedRecommendType || n.type === appliedRecommendType)
     .sort((a, b) => Number(b.baseAmount) - Number(a.baseAmount))
-    .slice(0, recommendCount);
+    .slice(0, appliedRecommendCount);
 
   const sortedClosed = [...closedNotices].sort((a, b) => {
     const da = daysUntilClose(a.closeAt) ?? -Infinity;
@@ -278,9 +292,15 @@ function render() {
     dueSoon: dueSoonItems,
     today: todayItems,
     closed: sortedClosed,
-    recommend: recommendItems,
   };
-  if (currentView && viewItemsMap[currentView]) {
+
+  if (currentView === "recommend") {
+    simpleListEl.innerHTML = !recommendApplied
+      ? `<p class="empty">업무구분과 개수를 정하고 "조회" 버튼을 눌러주세요.</p>`
+      : recommendItems.length === 0
+        ? `<p class="empty">표시할 공고가 없습니다.</p>`
+        : recommendItems.map(cardHtml).join("");
+  } else if (currentView && viewItemsMap[currentView]) {
     const simpleKeyword = simpleSearchInput.value.trim().toLowerCase();
     const simpleType = simpleTypeFilter.value;
     const items = viewItemsMap[currentView].filter((n) => {
@@ -323,15 +343,17 @@ typeFilter.addEventListener("change", render);
 simpleSearchInput.addEventListener("input", render);
 simpleTypeFilter.addEventListener("change", render);
 
-recommendCountInput.addEventListener("input", () => {
+recommendApplyBtn.addEventListener("click", () => {
   const raw = recommendCountInput.value.trim();
   const n = Number(raw);
   if (raw === "" || !Number.isInteger(n) || n < 1) {
     recommendCountMsg.textContent = "숫자를 입력해주세요.";
-    return; // 유효하지 않으면 목록은 이전 값 기준으로 유지
+    return;
   }
   recommendCountMsg.textContent = "";
-  recommendCount = n; // 실제 표시는 "현재 신청 가능한 사업 수"를 넘지 않게 자동으로 잘림
+  appliedRecommendCount = n;
+  appliedRecommendType = recommendType.value;
+  recommendApplied = true;
   render();
 });
 
@@ -368,14 +390,12 @@ window.addEventListener("appinstalled", () => {
   if (installBtn) installBtn.style.display = "none";
 });
 
-// ── 새 공고 알림 받기/해제 ─────────────────────────────
 const VAPID_KEY =
   "BC3HRjI4WdXHRPZG6Cy4iOGkG_8NIky_EKDHiZNZ_5QycROvJMyW9opS_tdTgUZOhKTbAgoyEk2mg7wVGX9Heyk";
 const notifyBtn = document.getElementById("notifyBtn");
 const SUBSCRIBED_LABEL = "🔕 알림 해제하기";
 const UNSUBSCRIBED_LABEL = "🔔 새 공고 알림 받기";
 
-// 이전에 이 브라우저에서 구독한 적 있으면 버튼 상태 복원
 let savedToken = localStorage.getItem("fcmToken");
 if (savedToken && notifyBtn) {
   notifyBtn.textContent = SUBSCRIBED_LABEL;
