@@ -162,13 +162,18 @@ function renderSection(sectionEl, listEl, items) {
   listEl.innerHTML = items.map(cardHtml).join("");
 }
 
+// ── 화면 전환 ──────────────────────────────────────────
+// 히스토리에 상태를 남겨서, 모바일/브라우저 뒤로가기 버튼이
+// 앱을 바로 종료하지 않고 이전 화면(홈)으로 돌아가도록 함
+history.replaceState({ view: "home" }, "", location.pathname + location.search);
+
 function showHome() {
   currentView = null;
   homeView.style.display = "block";
   subView.style.display = "none";
 }
 
-function showView(view) {
+function showView(view, pushHistory = true) {
   currentView = view;
   homeView.style.display = "none";
   subView.style.display = "block";
@@ -184,13 +189,28 @@ function showView(view) {
     simpleSearchInput.value = "";
     simpleTypeFilter.value = "";
   }
+
+  if (pushHistory) {
+    history.pushState({ view }, "", "#" + view);
+  }
   render();
 }
 
 tiles.forEach((tile) => {
   tile.addEventListener("click", () => showView(tile.dataset.view));
 });
-backBtn.addEventListener("click", showHome);
+
+// 뒤로가기 버튼도 history.back()으로 통일 (popstate가 실제 화면 전환을 처리)
+backBtn.addEventListener("click", () => history.back());
+
+window.addEventListener("popstate", (e) => {
+  const view = e.state?.view;
+  if (!view || view === "home") {
+    showHome();
+  } else {
+    showView(view, false); // 히스토리에 다시 쌓지 않음(popstate로 이미 이동한 상태)
+  }
+});
 
 function render() {
   const openNotices = allNotices.filter((n) => {
