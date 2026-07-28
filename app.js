@@ -206,6 +206,41 @@ onSnapshot(doc(db, "meta", "status"), (snap) => {
 searchInput.addEventListener("input", render);
 typeFilter.addEventListener("change", render);
 
+// ── 서비스워커 등록 (PWA 설치 조건 충족 + 알림 등록에 재사용) ──
+let swRegistration = null;
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker
+    .register("/firebase-messaging-sw.js")
+    .then((reg) => {
+      swRegistration = reg;
+    })
+    .catch((err) => console.error("서비스워커 등록 실패:", err));
+}
+
+// ── 앱으로 설치하기 (PWA, 조건 충족 시에만 브라우저가 이벤트를 줌) ──
+const installBtn = document.getElementById("installBtn");
+let deferredInstallPrompt = null;
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  if (installBtn) installBtn.style.display = "block";
+});
+
+if (installBtn) {
+  installBtn.addEventListener("click", async () => {
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    installBtn.style.display = "none";
+  });
+}
+
+window.addEventListener("appinstalled", () => {
+  if (installBtn) installBtn.style.display = "none";
+});
+
 // ── 새 공고 알림 받기 ──────────────────────────────────
 const VAPID_KEY =
   "BC3HRjI4WdXHRPZG6Cy4iOGkG_8NIky_EKDHiZNZ_5QycROvJMyW9opS_tdTgUZOhKTbAgoyEk2mg7wVGX9Heyk";
@@ -223,10 +258,10 @@ if (notifyBtn) {
         alert("알림 권한이 허용되지 않았습니다.");
         return;
       }
-      const registration = await navigator.serviceWorker.register(
+      const registration = swRegistration || (await navigator.serviceWorker.register(
         "/firebase-messaging-sw.js"
-      );
-      await navigator.serviceWorker.ready; // 서비스워커가 활성화될 때까지 대기
+      ));
+      await navigator.serviceWorker.ready;
       const messaging = getMessaging(app);
       const token = await getToken(messaging, {
         vapidKey: VAPID_KEY,

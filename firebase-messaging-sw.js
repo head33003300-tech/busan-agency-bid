@@ -18,3 +18,6 @@ messaging.onBackgroundMessage((payload) => {
   const body = payload.notification?.body || "새 공고가 등록되었습니다.";
   self.registration.showNotification(title, { body });
 });
+
+// PWA 설치(홈 화면 추가) 조건 충족을 위한 최소 fetch 핸들러 (별도 캐싱은 하지 않고 그대로 통과)
+self.addEventListener("fetch", () => {});
