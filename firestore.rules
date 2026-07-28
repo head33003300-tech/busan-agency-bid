@@ -5,5 +5,9 @@ service cloud.firestore {
       allow read: if true;               // 공개 페이지: 누구나 조회 가능
       allow write: if request.auth != null; // 관리자 화면: 로그인한 사용자만 추가/수정/삭제
     }
+    match /meta/{docId} {
+      allow read: if true;   // 공개 페이지: 마지막 조회 시각 등 조회 가능
+      allow write: if false; // 클라이언트에서는 쓰기 불가 (Cloud Functions는 admin 권한이라 규칙과 무관하게 항상 가능)
+    }
   }
 }

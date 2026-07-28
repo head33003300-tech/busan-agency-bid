@@ -1,6 +1,7 @@
 import { db } from "./firebase-config.js";
 import {
   collection,
+  doc,
   onSnapshot,
   orderBy,
   query,
@@ -183,6 +184,18 @@ onSnapshot(q, (snapshot) => {
   allNotices = snapshot.docs.map((doc) => doc.data());
   noticesById = new Map(allNotices.map((n) => [n.bidNtceNo, n]));
   render();
+});
+
+const lastCheckedEl = document.getElementById("lastChecked");
+onSnapshot(doc(db, "meta", "status"), (snap) => {
+  if (!snap.exists() || !lastCheckedEl) return;
+  const data = snap.data();
+  if (!data.lastCheckedAt) return;
+  const d = new Date(data.lastCheckedAt);
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  const ss = String(d.getSeconds()).padStart(2, "0");
+  lastCheckedEl.textContent = `마지막 조회: ${hh}:${mm}:${ss}`;
 });
 
 searchInput.addEventListener("input", render);

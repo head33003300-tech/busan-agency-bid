@@ -188,6 +188,8 @@ footer {
   padding: 24px 20px;
 }
 
+.last-checked { margin-top: 4px; }
+
 .modal-overlay {
   position: fixed;
   inset: 0;

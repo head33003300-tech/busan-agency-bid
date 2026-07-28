@@ -131,6 +131,15 @@ exports.collectNaraNotices = onSchedule(
       await sleep(400);
     }
 
+    // 조회할 때마다(신규 공고 유무와 무관하게) 마지막 조회 시각 기록
+    await db.collection("meta").doc("status").set(
+      {
+        lastCheckedAt: new Date().toISOString(),
+        lastFoundCount: notices.length,
+      },
+      { merge: true }
+    );
+
     if (notices.length === 0) {
       logger.info("신규/해당 공고 없음");
       return;
