@@ -64,6 +64,18 @@
 
       <!-- 대시보드: 기존 전체 화면 그대로 -->
       <div id="dashboardView" style="display:none;">
+        <section class="filters">
+          <input id="searchInput" type="text" placeholder="공고명 / 기관명 검색" />
+          <select id="typeFilter">
+            <option value="">전체 업무구분</option>
+            <option value="물품">물품</option>
+            <option value="공사">공사</option>
+            <option value="용역">용역</option>
+            <option value="외자">외자</option>
+            <option value="기타">기타</option>
+          </select>
+        </section>
+
         <section id="todaySection" class="highlight-section" style="display:none;">
           <h2>🔔 오늘 신규 추가</h2>
           <div id="todayList" class="notice-list"></div>
@@ -80,17 +92,6 @@
         </section>
 
         <h2 id="allList">전체 공고 목록</h2>
-        <section class="filters">
-          <input id="searchInput" type="text" placeholder="공고명 / 기관명 검색" />
-          <select id="typeFilter">
-            <option value="">전체 업무구분</option>
-            <option value="물품">물품</option>
-            <option value="공사">공사</option>
-            <option value="용역">용역</option>
-            <option value="외자">외자</option>
-            <option value="기타">기타</option>
-          </select>
-        </section>
 
         <section id="noticeList" class="notice-list">
           <p class="loading">불러오는 중...</p>
