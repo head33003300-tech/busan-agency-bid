@@ -167,43 +167,104 @@ body {
   margin: 14px 0 16px;
 }
 
-.recommend-controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 14px;
+.recommend-panel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 22px 20px;
+  margin-bottom: 20px;
+}
+
+.recommend-panel-title {
+  margin: 0 0 16px;
   font-size: 14px;
   color: var(--muted);
+  line-height: 1.5;
+}
+
+.chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.chip {
+  padding: 9px 18px;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--navy-700);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.chip:hover { border-color: var(--navy-500); }
+
+.chip.active {
+  background: var(--navy-700);
+  border-color: var(--navy-700);
+  color: #fff;
+}
+
+.recommend-count-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  color: var(--ink);
   flex-wrap: wrap;
 }
 
-.recommend-controls input[type="number"] {
-  width: 70px;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+.recommend-count-row input[type="number"] {
+  width: 90px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.recommend-count-row input[type="number"]:focus {
+  outline: 2px solid var(--navy-500);
+  outline-offset: 1px;
 }
 
 .recommend-msg {
+  display: block;
+  margin-top: 10px;
   color: var(--signal-due);
   font-size: 13px;
 }
 
 .apply-btn {
-  padding: 8px 16px;
+  padding: 12px 22px;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--navy-700);
   color: #fff;
   font-family: inherit;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   cursor: pointer;
+  margin-left: auto;
 }
 
 .apply-btn:hover { background: var(--navy-900); }
+
+.recommend-empty {
+  text-align: center;
+  padding: 56px 20px;
+  color: var(--muted);
+}
+
+.recommend-empty .icon { font-size: 34px; display: block; margin-bottom: 10px; }
+.recommend-empty .text { font-size: 14px; }
 
 main { max-width: 880px; margin: 0 auto; padding: 0 16px 60px; }
 

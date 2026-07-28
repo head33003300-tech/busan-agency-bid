@@ -25,7 +25,7 @@ const simpleFilters = document.getElementById("simpleFilters");
 const simpleSearchInput = document.getElementById("simpleSearchInput");
 const simpleTypeFilter = document.getElementById("simpleTypeFilter");
 const recommendControls = document.getElementById("recommendControls");
-const recommendType = document.getElementById("recommendType");
+const recommendTypeChips = document.querySelectorAll("#recommendTypeChips .chip");
 const recommendCountInput = document.getElementById("recommendCount");
 const recommendApplyBtn = document.getElementById("recommendApplyBtn");
 const recommendCountMsg = document.getElementById("recommendCountMsg");
@@ -60,6 +60,14 @@ let currentView = null;
 let appliedRecommendCount = 20;
 let appliedRecommendType = "";
 let recommendApplied = false;
+let selectedRecommendType = "";
+
+recommendTypeChips.forEach((chip) => {
+  chip.addEventListener("click", () => {
+    selectedRecommendType = chip.dataset.type;
+    recommendTypeChips.forEach((c) => c.classList.toggle("active", c === chip));
+  });
+});
 
 const VIEW_TITLES = {
   open: "✅ 현재 신청 가능 사업",
@@ -197,10 +205,14 @@ function showView(view, pushHistory = true) {
 
     if (view === "recommend") {
       simpleFilters.style.display = "none";
-      recommendControls.style.display = "flex";
-      recommendType.value = appliedRecommendType;
-      recommendCountInput.value = appliedRecommendCount;
+      recommendControls.style.display = "block";
+      selectedRecommendType = "";
+      appliedRecommendType = "";
+      appliedRecommendCount = 20;
+      recommendApplied = false;
+      recommendCountInput.value = 20;
       recommendCountMsg.textContent = "";
+      recommendTypeChips.forEach((c) => c.classList.toggle("active", c.dataset.type === ""));
     } else {
       simpleFilters.style.display = "flex";
       recommendControls.style.display = "none";
@@ -296,7 +308,7 @@ function render() {
 
   if (currentView === "recommend") {
     simpleListEl.innerHTML = !recommendApplied
-      ? `<p class="empty">업무구분과 개수를 정하고 "조회" 버튼을 눌러주세요.</p>`
+      ? `<div class="recommend-empty"><span class="icon">💰</span><span class="text">업무구분과 개수를 정하고<br />"조회" 버튼을 눌러주세요.</span></div>`
       : recommendItems.length === 0
         ? `<p class="empty">표시할 공고가 없습니다.</p>`
         : recommendItems.map(cardHtml).join("");
@@ -352,7 +364,7 @@ recommendApplyBtn.addEventListener("click", () => {
   }
   recommendCountMsg.textContent = "";
   appliedRecommendCount = n;
-  appliedRecommendType = recommendType.value;
+  appliedRecommendType = selectedRecommendType;
   recommendApplied = true;
   render();
 });
