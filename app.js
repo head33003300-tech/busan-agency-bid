@@ -226,6 +226,7 @@ if (notifyBtn) {
       const registration = await navigator.serviceWorker.register(
         "/firebase-messaging-sw.js"
       );
+      await navigator.serviceWorker.ready; // 서비스워커가 활성화될 때까지 대기
       const messaging = getMessaging(app);
       const token = await getToken(messaging, {
         vapidKey: VAPID_KEY,
