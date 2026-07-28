@@ -33,8 +33,39 @@ const OPERATIONS = [
   { type: "기타", path: "getBidPblancListInfoEtcPPSSrch" },
 ];
 
-// 발주기관명에 이 키워드가 포함되면 "부산 소재 공기업/공공기관"으로 판별
-const BUSAN_KEYWORDS = ["부산"];
+const BUSAN_KEYWORDS = [
+  "부산",
+  // 부산혁신도시 등으로 이전해서 이름에 "부산"이 안 들어가는 공공기관
+  "한국남부발전",
+  "한국자산관리공사",
+  "한국주택금융공사",
+  "한국예탁결제원",
+  "주택도시보증공사",
+  "국립수산물품질관리원",
+  "국립해양조사원",
+  "한국해양수산개발원",
+  "한국해양과학기술원",
+  "영화진흥위원회",
+  "영상물등급위원회",
+  "게임물관리위원회",
+  "한국청소년상담복지개발원",
+  "한국선급",
+  // 부산시 산하 출자·출연기관 중 이름에 "부산"이 없는 곳
+  "벡스코",
+  "아시아드컨트리클럽",
+  "아시아드CC",
+  // 부산시 산하 출자·출연기관 중 이름에 "부산"이 없는 곳
+  "벡스코",
+  "아시아드컨트리클럽",
+  "아시아드CC",
+  "영화의전당",
+  // 부산 소재 금융공기업 등 (부산국제금융센터 BIFC 입주기관 포함)
+  "한국거래소",
+  "기술보증기금",
+  "한국해양진흥공사",
+  // 부산 소재 국립대학
+  "부경대학교",
+];
 
 // ── 유틸 ──────────────────────────────────────────────
 function isBusanAgency(item) {
@@ -87,11 +118,8 @@ function httpsGetJson(url) {
   });
 }
 
-// ⚠️ 임시 백필(과거 놓친 공고 소급 수집)용 — 1회 실행 후 반드시 todayStr()로 되돌릴 것
-const BACKFILL_START = "20260628"; // 최근 30일 정도로 넉넉히 잡음, 필요시 조정
-
 async function fetchOperation(op, apiKey) {
-  const url = `${BASE_URL}/${op.path}?ServiceKey=${apiKey}&pageNo=1&numOfRows=500&type=json&inqryDiv=1&inqryBgnDt=${BACKFILL_START}0000&inqryEndDt=${todayStr()}2359`;
+  const url = `${BASE_URL}/${op.path}?ServiceKey=${apiKey}&pageNo=1&numOfRows=300&type=json&inqryDiv=1&inqryBgnDt=${todayStr()}0000&inqryEndDt=${todayStr()}2359`;
 
   const { status, body } = await httpsGetJson(url);
   if (status !== 200) {
