@@ -23,9 +23,8 @@ const simpleListView = document.getElementById("simpleListView");
 const simpleListEl = document.getElementById("simpleList");
 const simpleFilters = document.getElementById("simpleFilters");
 const simpleSearchInput = document.getElementById("simpleSearchInput");
-const simpleTypeFilter = document.getElementById("simpleTypeFilter");
+const simpleSearchBtn = document.getElementById("simpleSearchBtn");
 const recommendControls = document.getElementById("recommendControls");
-const recommendTypeChips = document.querySelectorAll("#recommendTypeChips .chip");
 const recommendCountInput = document.getElementById("recommendCount");
 const recommendApplyBtn = document.getElementById("recommendApplyBtn");
 const recommendCountMsg = document.getElementById("recommendCountMsg");
@@ -39,7 +38,7 @@ const countClosedEl = document.getElementById("countClosed");
 const listEl = document.getElementById("noticeList");
 const closedListEl = document.getElementById("closedList");
 const searchInput = document.getElementById("searchInput");
-const typeFilter = document.getElementById("typeFilter");
+const searchBtn = document.getElementById("searchBtn");
 
 const todaySection = document.getElementById("todaySection");
 const todayList = document.getElementById("todayList");
@@ -58,16 +57,7 @@ let allNotices = [];
 let noticesById = new Map();
 let currentView = null;
 let appliedRecommendCount = 20;
-let appliedRecommendType = "";
 let recommendApplied = false;
-let selectedRecommendType = "";
-
-recommendTypeChips.forEach((chip) => {
-  chip.addEventListener("click", () => {
-    selectedRecommendType = chip.dataset.type;
-    recommendTypeChips.forEach((c) => c.classList.toggle("active", c === chip));
-  });
-});
 
 const VIEW_TITLES = {
   open: "✅ 현재 신청 가능 사업",
@@ -88,15 +78,16 @@ function todayStr() {
 
 function daysUntilClose(closeAt) {
   if (!closeAt) return null;
-  const datePart = String(closeAt).slice(0, 10).replace(/[^0-9]/g, "");
-  if (datePart.length < 8) return null;
-  const y = Number(datePart.slice(0, 4));
-  const m = Number(datePart.slice(4, 6));
-  const d = Number(datePart.slice(6, 8));
-  const close = new Date(y, m - 1, d);
+  let str = String(closeAt).trim();
+  if (!/\d{1,2}:\d{2}/.test(str)) {
+    str = str.slice(0, 10) + "T23:59:59";
+  } else {
+    str = str.includes("T") ? str : str.replace(" ", "T");
+  }
+  const d = new Date(str);
+  if (Number.isNaN(d.getTime())) return null;
   const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  return Math.round((close - now) / 86400000);
+  return (d.getTime() - now.getTime()) / 86400000;
 }
 
 function formatAddedTime(isoString) {
@@ -206,18 +197,14 @@ function showView(view, pushHistory = true) {
     if (view === "recommend") {
       simpleFilters.style.display = "none";
       recommendControls.style.display = "block";
-      selectedRecommendType = "";
-      appliedRecommendType = "";
       appliedRecommendCount = 20;
       recommendApplied = false;
       recommendCountInput.value = 20;
       recommendCountMsg.textContent = "";
-      recommendTypeChips.forEach((c) => c.classList.toggle("active", c.dataset.type === ""));
     } else {
       simpleFilters.style.display = "flex";
       recommendControls.style.display = "none";
       simpleSearchInput.value = "";
-      simpleTypeFilter.value = "";
     }
   }
 
@@ -260,7 +247,6 @@ function render() {
   });
   const recommendItems = [...openNotices]
     .filter((n) => n.baseAmount && !Number.isNaN(Number(n.baseAmount)))
-    .filter((n) => !appliedRecommendType || n.type === appliedRecommendType)
     .sort((a, b) => Number(b.baseAmount) - Number(a.baseAmount))
     .slice(0, appliedRecommendCount);
 
@@ -280,14 +266,12 @@ function render() {
   renderSection(dueSoonSection, dueSoonList, dueSoonItems);
 
   const keyword = searchInput.value.trim().toLowerCase();
-  const type = typeFilter.value;
   const filtered = openNotices.filter((n) => {
-    const matchesKeyword =
+    return (
       !keyword ||
       n.title.toLowerCase().includes(keyword) ||
-      n.org.toLowerCase().includes(keyword);
-    const matchesType = !type || n.type === type;
-    return matchesKeyword && matchesType;
+      n.org.toLowerCase().includes(keyword)
+    );
   });
   listEl.innerHTML =
     filtered.length === 0
@@ -308,20 +292,18 @@ function render() {
 
   if (currentView === "recommend") {
     simpleListEl.innerHTML = !recommendApplied
-      ? `<div class="recommend-empty"><span class="icon">💰</span><span class="text">업무구분과 개수를 정하고<br />"조회" 버튼을 눌러주세요.</span></div>`
+      ? `<div class="recommend-empty"><span class="icon">💰</span><span class="text">개수를 정하고<br />"조회" 버튼을 눌러주세요.</span></div>`
       : recommendItems.length === 0
         ? `<p class="empty">표시할 공고가 없습니다.</p>`
         : recommendItems.map(cardHtml).join("");
   } else if (currentView && viewItemsMap[currentView]) {
     const simpleKeyword = simpleSearchInput.value.trim().toLowerCase();
-    const simpleType = simpleTypeFilter.value;
     const items = viewItemsMap[currentView].filter((n) => {
-      const matchesKeyword =
+      return (
         !simpleKeyword ||
         n.title.toLowerCase().includes(simpleKeyword) ||
-        n.org.toLowerCase().includes(simpleKeyword);
-      const matchesType = !simpleType || n.type === simpleType;
-      return matchesKeyword && matchesType;
+        n.org.toLowerCase().includes(simpleKeyword)
+      );
     });
     simpleListEl.innerHTML =
       items.length === 0
@@ -350,10 +332,14 @@ onSnapshot(doc(db, "meta", "status"), (snap) => {
   lastCheckedEl.textContent = `마지막 조회: ${hh}:${mm}:${ss}`;
 });
 
-searchInput.addEventListener("input", render);
-typeFilter.addEventListener("change", render);
-simpleSearchInput.addEventListener("input", render);
-simpleTypeFilter.addEventListener("change", render);
+searchBtn.addEventListener("click", render);
+searchInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") render();
+});
+simpleSearchBtn.addEventListener("click", render);
+simpleSearchInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") render();
+});
 
 recommendApplyBtn.addEventListener("click", () => {
   const raw = recommendCountInput.value.trim();
@@ -364,7 +350,6 @@ recommendApplyBtn.addEventListener("click", () => {
   }
   recommendCountMsg.textContent = "";
   appliedRecommendCount = n;
-  appliedRecommendType = selectedRecommendType;
   recommendApplied = true;
   render();
 });

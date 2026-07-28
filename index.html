@@ -66,14 +66,7 @@
       <div id="dashboardView" style="display:none;">
         <section class="filters">
           <input id="searchInput" type="text" placeholder="공고명 / 기관명 검색" />
-          <select id="typeFilter">
-            <option value="">전체 업무구분</option>
-            <option value="물품">물품</option>
-            <option value="공사">공사</option>
-            <option value="용역">용역</option>
-            <option value="외자">외자</option>
-            <option value="기타">기타</option>
-          </select>
+          <button id="searchBtn" class="apply-btn">🔍 검색</button>
         </section>
 
         <section id="todaySection" class="highlight-section" style="display:none;">
@@ -107,25 +100,10 @@
       <div id="simpleListView" style="display:none;">
         <section id="simpleFilters" class="filters">
           <input id="simpleSearchInput" type="text" placeholder="공고명 / 기관명 검색" />
-          <select id="simpleTypeFilter">
-            <option value="">전체 업무구분</option>
-            <option value="물품">물품</option>
-            <option value="공사">공사</option>
-            <option value="용역">용역</option>
-            <option value="외자">외자</option>
-            <option value="기타">기타</option>
-          </select>
+          <button id="simpleSearchBtn" class="apply-btn">🔍 검색</button>
         </section>
         <div id="recommendControls" class="recommend-panel" style="display:none;">
-          <p class="recommend-panel-title">업무구분과 개수를 정하고 조회하면, 신청 가능한 공고 중 추정가격이 높은 순으로 보여드려요.</p>
-          <div class="chip-group" id="recommendTypeChips">
-            <button type="button" class="chip active" data-type="">전체</button>
-            <button type="button" class="chip" data-type="물품">물품</button>
-            <button type="button" class="chip" data-type="공사">공사</button>
-            <button type="button" class="chip" data-type="용역">용역</button>
-            <button type="button" class="chip" data-type="외자">외자</button>
-            <button type="button" class="chip" data-type="기타">기타</button>
-          </div>
+          <p class="recommend-panel-title">개수를 정하고 조회하면, 신청 가능한 공고 중 추정가격이 높은 순으로 보여드려요.</p>
           <div class="recommend-count-row">
             <label for="recommendCount">상위</label>
             <input id="recommendCount" type="number" min="1" value="20" />
