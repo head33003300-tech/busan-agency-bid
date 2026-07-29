@@ -51,8 +51,6 @@ const detailModal = document.getElementById("detailModal");
 const modalBody = document.getElementById("modalBody");
 const modalClose = document.getElementById("modalClose");
 
-const CLOSED_WINDOW_DAYS = 1;
-
 let allNotices = [];
 let noticesById = new Map();
 let currentView = null;
@@ -63,7 +61,7 @@ const VIEW_TITLES = {
   open: "✅ 현재 신청 가능 사업",
   dueSoon: "⏰ 마감 임박 사업",
   today: "🔔 오늘 추가된 사업",
-  closed: "🗂 종료된 사업 (최근 1일)",
+  closed: "🗂 종료된 사업",
   recommend: "💰 고액 사업 TOP",
 };
 
@@ -236,7 +234,7 @@ function render() {
   });
   const closedNotices = allNotices.filter((n) => {
     const d = daysUntilClose(n.closeAt);
-    return d !== null && d < 0 && d >= -CLOSED_WINDOW_DAYS;
+    return d !== null && d < 0;
   });
 
   const todayItems = openNotices.filter((n) => n.firstSeenAt === todayStr());
