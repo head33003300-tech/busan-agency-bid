@@ -3,7 +3,6 @@
  *
  * - 나라장터 오픈API(나라장터검색조건에 의한 입찰공고조회, PPSSrch)를 주기적으로 호출
  * - 발주기관명(공고기관/수요기관)에 "부산"이 포함된 공고만 필터링
- *   (참여 가능 지역이 아니라, 발주처 자체가 부산 소재 공기업/공공기관인지 기준)
  * - Firestore 'notices' 컬렉션에 upsert (공고번호 기준 중복 방지)
  *
  * 환경변수(.env 또는 functions:config)로 다음 값을 설정해야 합니다.
@@ -21,20 +20,14 @@ initializeApp();
 const db = getFirestore();
 
 // ── 설정 ──────────────────────────────────────────────
-// ⚠️ 공식 참고문서 기준 정확한 경로: /1230000/ad/BidPublicInfoService (ad 누락 주의)
 const BASE_URL = "https://apis.data.go.kr/1230000/ad/BidPublicInfoService";
 
-// 업무구분별 오퍼레이션 (나라장터검색조건에 의한 입찰공고조회) — 지금은 용역만 수집
 const OPERATIONS = [
   { type: "용역", path: "getBidPblancListInfoServcPPSSrch" },
 ];
 
-// 발주기관명에 이 키워드 중 하나라도 포함되면 "부산 소재 공기업/공공기관"으로 판별
-// - "부산"은 기본 키워드
-// - 나머지는 부산혁신도시 등으로 이전해서 이름에 "부산"이 안 들어가는 주요 기관들
 const BUSAN_KEYWORDS = [
   "부산",
-  // 부산혁신도시 등으로 이전해서 이름에 "부산"이 안 들어가는 공공기관
   "한국남부발전",
   "한국자산관리공사",
   "한국주택금융공사",
@@ -49,37 +42,100 @@ const BUSAN_KEYWORDS = [
   "게임물관리위원회",
   "한국청소년상담복지개발원",
   "한국선급",
-  // 부산시 산하 출자·출연기관 중 이름에 "부산"이 없는 곳
   "벡스코",
   "아시아드컨트리클럽",
   "아시아드CC",
   "영화의전당",
-  // 부산 소재 금융공기업 등 (부산국제금융센터 BIFC 입주기관 포함)
   "한국거래소",
   "기술보증기금",
   "한국해양진흥공사",
-  // 부산 소재 국립대학
   "부경대학교",
   "한국해양대학교",
+];
+
+// 전국에 지사/사업소가 있어서 "기관명만 보면" 다른 지역 공고까지 다 걸리는 기관들.
+// 이 기관들은 추가로 "타지역 명칭이 있는데 부산 언급이 없으면" 제외 처리함
+const NATIONWIDE_AGENCIES = [
+  "한국남부발전",
+  "한국자산관리공사",
+  "한국주택금융공사",
+  "한국예탁결제원",
+  "주택도시보증공사",
+  "한국거래소",
+  "기술보증기금",
+];
+
+const BUSAN_CONTEXT_KEYWORDS = [
+  "부산",
+  "부산본사",
+  "부산사옥",
+  "부산지사",
+  "부산사업소",
+  "부산광역시",
+];
+
+const NON_BUSAN_LOCATION_KEYWORDS = [
+  "서울",
+  "서울사옥",
+  "서울사무소",
+  "수도권",
+  "인천",
+  "경기",
+  "강원",
+  "대전",
+  "세종",
+  "대구",
+  "광주",
+  "울산",
+  "제주",
+  "충북",
+  "충남",
+  "전북",
+  "전남",
+  "경북",
+  "경남",
+  "하동",
+  "삼척",
+  "안동",
+  "영월",
 ];
 
 // ── 유틸 ──────────────────────────────────────────────
 // 나라장터 공고는 두 가지 패턴이 있음:
 // 1) 조달청이 대리로 올리는 경우: 공고기관명이 "OO지방조달청"이라 지역명이 실제
 //    발주처 소재지와 무관함 → 이땐 공고기관명은 무시하고 수요기관명(실제 발주처)만 확인
-// 2) 기관이 직접 올리는 경우(예: 한국남부발전주식회사): 공고기관명 자체가 진짜 발주처이고,
-//    수요기관명엔 그냥 내부 부서명(계약자재부 등)이 들어있어 오히려 의미 없음 → 공고기관명을 확인
+// 2) 기관이 직접 올리는 경우(예: 한국남부발전주식회사): 공고기관명 자체가 진짜 발주처
 function isBusanAgency(item) {
   const ntce = item.ntceInsttNm || "";
   const dm = item.dminsttNm || "";
-  const org = ntce.includes("조달청") ? dm : ntce + dm;
-  return BUSAN_KEYWORDS.some((kw) => org.includes(kw));
+  const title = item.bidNtceNm || "";
+  const region = item.prtcptPsblRgnNm || "";
+
+  const targetOrg = ntce.includes("조달청") ? dm : `${ntce} ${dm}`;
+
+  const matchedKeyword = BUSAN_KEYWORDS.find((keyword) => targetOrg.includes(keyword));
+  if (!matchedKeyword) return false;
+
+  // 전국 단위 기관(지사/사업소가 여러 지역에 있는 곳)이면 지역 문맥까지 확인
+  const isNationwideAgency = NATIONWIDE_AGENCIES.some((agency) => targetOrg.includes(agency));
+  if (isNationwideAgency) {
+    const contextText = `${targetOrg} ${title} ${region}`;
+    const hasBusanContext = BUSAN_CONTEXT_KEYWORDS.some((kw) => contextText.includes(kw));
+    const hasNonBusanLocation = NON_BUSAN_LOCATION_KEYWORDS.some((kw) => contextText.includes(kw));
+
+    // 다른 지역은 명시되어 있는데 부산은 명시되지 않은 경우 제외
+    if (hasNonBusanLocation && !hasBusanContext) {
+      logger.info(`타지역 공고 제외: ${title} / 기관: ${targetOrg}`);
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function toNoticeDoc(item, type) {
   const ntce = item.ntceInsttNm || "";
   const dm = item.dminsttNm || "";
-  // 조달청 대리 공고면 실제 발주처(수요기관)를, 직접 올린 공고면 공고기관명을 표시
   const displayOrg = ntce.includes("조달청") ? dm || ntce : ntce || dm;
 
   return {
@@ -87,11 +143,12 @@ function toNoticeDoc(item, type) {
     type,
     title: item.bidNtceNm || "",
     org: displayOrg,
+    // 디버깅용: 어떤 필드 때문에 걸렸는지 확인할 수 있게 원본 기관명 둘 다 저장
+    ntceInsttNm: ntce,
+    dminsttNm: dm,
     region: item.prtcptPsblRgnNm || "",
     bidMethod: item.bidMethdNm || "",
     postedAt: item.bidNtceDt || null,
-    // 입찰마감일시(bidClseDt)가 없는 공고(주로 협상에 의한 계약)는
-    // 개찰일시(opengDt)를 대신 마감 판단 기준으로 사용
     closeAt: item.bidClseDt || item.opengDt || null,
     baseAmount: item.presmptPrce || null,
     detailUrl: item.bidNtceDtlUrl || null,
@@ -126,9 +183,10 @@ function httpsGetJson(url) {
   });
 }
 
-// ⚠️ 임시 백필(과거 놓친 공고 소급 수집)용 — 1회 실행 후 반드시 todayStr()로 되돌릴 것
-// API가 조회기간을 최대 1개월로 제한하므로, 날짜가 지나도 안전하게 여유를 두고 잡음
-const BACKFILL_START = "20260715";
+// ⚠️ 임시 백필용 — 다 끝나면 아래 두 줄을 지우고, fetchOperation 안의
+// ${BACKFILL_START}/${BACKFILL_END}를 ${todayStr()}로 되돌릴 것
+const BACKFILL_START = "20260629";
+const BACKFILL_END = "20260729";
 
 async function fetchOperation(op, apiKey) {
   const numOfRows = 300;
@@ -137,7 +195,7 @@ async function fetchOperation(op, apiKey) {
   const collected = [];
 
   while ((pageNo - 1) * numOfRows < totalCount) {
-    const url = `${BASE_URL}/${op.path}?ServiceKey=${apiKey}&pageNo=${pageNo}&numOfRows=${numOfRows}&type=json&inqryDiv=1&inqryBgnDt=${BACKFILL_START}0000&inqryEndDt=${todayStr()}2359`;
+    const url = `${BASE_URL}/${op.path}?ServiceKey=${apiKey}&pageNo=${pageNo}&numOfRows=${numOfRows}&type=json&inqryDiv=1&inqryBgnDt=${BACKFILL_START}0000&inqryEndDt=${BACKFILL_END}2359`;
 
     const { status, body } = await httpsGetJson(url);
     if (status !== 200) {
@@ -193,7 +251,7 @@ exports.collectNaraNotices = onSchedule(
     timeZone: "Asia/Seoul",
     region: "asia-northeast3",
     secrets: ["NARA_API_KEY"],
-    timeoutSeconds: 300, // ⚠️ 백필 페이지네이션용으로 여유 있게, 끝나면 기본값(60)으로 되돌릴 것
+    timeoutSeconds: 300,
   },
   async () => {
     const apiKey = process.env.NARA_API_KEY;
@@ -209,7 +267,6 @@ exports.collectNaraNotices = onSchedule(
       await sleep(400);
     }
 
-    // 조회할 때마다(신규 공고 유무와 무관하게) 마지막 조회 시각 기록
     await db.collection("meta").doc("status").set(
       {
         lastCheckedAt: new Date().toISOString(),
