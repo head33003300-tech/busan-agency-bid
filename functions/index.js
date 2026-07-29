@@ -64,17 +64,29 @@ const BUSAN_KEYWORDS = [
 ];
 
 // ── 유틸 ──────────────────────────────────────────────
+// 나라장터 공고는 두 가지 패턴이 있음:
+// 1) 조달청이 대리로 올리는 경우: 공고기관명이 "OO지방조달청"이라 지역명이 실제
+//    발주처 소재지와 무관함 → 이땐 공고기관명은 무시하고 수요기관명(실제 발주처)만 확인
+// 2) 기관이 직접 올리는 경우(예: 한국남부발전주식회사): 공고기관명 자체가 진짜 발주처이고,
+//    수요기관명엔 그냥 내부 부서명(계약자재부 등)이 들어있어 오히려 의미 없음 → 공고기관명을 확인
 function isBusanAgency(item) {
-  const org = (item.ntceInsttNm || "") + "" + (item.dminsttNm || "");
+  const ntce = item.ntceInsttNm || "";
+  const dm = item.dminsttNm || "";
+  const org = ntce.includes("조달청") ? dm : ntce + dm;
   return BUSAN_KEYWORDS.some((kw) => org.includes(kw));
 }
 
 function toNoticeDoc(item, type) {
+  const ntce = item.ntceInsttNm || "";
+  const dm = item.dminsttNm || "";
+  // 조달청 대리 공고면 실제 발주처(수요기관)를, 직접 올린 공고면 공고기관명을 표시
+  const displayOrg = ntce.includes("조달청") ? dm || ntce : ntce || dm;
+
   return {
     bidNtceNo: item.bidNtceNo || null,
     type,
     title: item.bidNtceNm || "",
-    org: item.ntceInsttNm || item.dminsttNm || "",
+    org: displayOrg,
     region: item.prtcptPsblRgnNm || "",
     bidMethod: item.bidMethdNm || "",
     postedAt: item.bidNtceDt || null,
@@ -115,25 +127,51 @@ function httpsGetJson(url) {
 }
 
 // ⚠️ 임시 백필(과거 놓친 공고 소급 수집)용 — 1회 실행 후 반드시 todayStr()로 되돌릴 것
-const BACKFILL_START = "20260628"; // 최근 30일 정도로 넉넉히 잡음, 필요시 조정
+// API가 조회기간을 최대 1개월로 제한하므로, 날짜가 지나도 안전하게 여유를 두고 잡음
+const BACKFILL_START = "20260715";
 
 async function fetchOperation(op, apiKey) {
-  const url = `${BASE_URL}/${op.path}?ServiceKey=${apiKey}&pageNo=1&numOfRows=300&type=json&inqryDiv=1&inqryBgnDt=${BACKFILL_START}0000&inqryEndDt=${todayStr()}2359`;
+  const numOfRows = 300;
+  let pageNo = 1;
+  let totalCount = Infinity;
+  const collected = [];
 
-  const { status, body } = await httpsGetJson(url);
-  if (status !== 200) {
-    logger.error(`나라장터 API 호출 실패 (${op.type}) ${status}`, body.slice(0, 500));
-    return [];
+  while ((pageNo - 1) * numOfRows < totalCount) {
+    const url = `${BASE_URL}/${op.path}?ServiceKey=${apiKey}&pageNo=${pageNo}&numOfRows=${numOfRows}&type=json&inqryDiv=1&inqryBgnDt=${BACKFILL_START}0000&inqryEndDt=${todayStr()}2359`;
+
+    const { status, body } = await httpsGetJson(url);
+    if (status !== 200) {
+      logger.error(`나라장터 API 호출 실패 (${op.type}, page ${pageNo}) ${status}`, body.slice(0, 500));
+      break;
+    }
+    let data;
+    try {
+      data = JSON.parse(body);
+    } catch (e) {
+      logger.error(`나라장터 API 응답 파싱 실패 (${op.type}, page ${pageNo})`, body.slice(0, 500));
+      break;
+    }
+    const resultCode = data?.response?.header?.resultCode;
+    if (resultCode && resultCode !== "00") {
+      logger.error(
+        `나라장터 API 응답 오류 (${op.type}, page ${pageNo}) resultCode=${resultCode}`,
+        data?.response?.header?.resultMsg || ""
+      );
+      break;
+    }
+    const items = data?.response?.body?.items || [];
+    totalCount = Number(data?.response?.body?.totalCount) || items.length;
+
+    for (const item of items) {
+      if (isBusanAgency(item)) collected.push(toNoticeDoc(item, op.type));
+    }
+
+    if (items.length === 0) break;
+    pageNo += 1;
+    await sleep(300);
   }
-  let data;
-  try {
-    data = JSON.parse(body);
-  } catch (e) {
-    logger.error(`나라장터 API 응답 파싱 실패 (${op.type})`, body.slice(0, 500));
-    return [];
-  }
-  const items = data?.response?.body?.items || [];
-  return items.filter(isBusanAgency).map((item) => toNoticeDoc(item, op.type));
+
+  return collected;
 }
 
 function todayStr() {
@@ -155,6 +193,7 @@ exports.collectNaraNotices = onSchedule(
     timeZone: "Asia/Seoul",
     region: "asia-northeast3",
     secrets: ["NARA_API_KEY"],
+    timeoutSeconds: 300, // ⚠️ 백필 페이지네이션용으로 여유 있게, 끝나면 기본값(60)으로 되돌릴 것
   },
   async () => {
     const apiKey = process.env.NARA_API_KEY;
