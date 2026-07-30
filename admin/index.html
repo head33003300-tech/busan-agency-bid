@@ -14,7 +14,7 @@
   form input, form select { padding: 10px; border: 1px solid var(--line); border-radius: 8px; font-family: inherit; }
   button { padding: 10px; border: none; border-radius: 8px; background: var(--navy-700); color: #fff; cursor: pointer; font-weight: 600; }
   button:hover { background: var(--navy-900); }
-  .row-actions button { background: var(--signal-due); padding: 4px 10px; font-size: 12px; }
+  .row-actions button { background: var(--signal-due); padding: 4px 10px; font-size: 12px; margin-right: 4px; }
   .row-actions button:hover { background: #a3172f; }
   table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
   th { color: var(--muted); font-weight: 600; text-align: left; padding: 8px; border-bottom: 1px solid var(--line); }
@@ -33,7 +33,7 @@
   </div>
 
   <div id="adminPanel" class="admin-panel" style="display:none;">
-    <h2>공고 수동 추가</h2>
+    <h2 id="formTitle">공고 수동 추가</h2>
     <form id="noticeForm">
       <input type="text" id="title" placeholder="공고명" required />
       <input type="text" id="org" placeholder="발주기관" required />
@@ -45,8 +45,12 @@
       </select>
       <input type="date" id="postedAt" />
       <input type="date" id="closeAt" />
+      <input type="number" id="baseAmount" placeholder="추정가격 (숫자만, 선택)" />
       <input type="url" id="detailUrl" placeholder="상세 링크 (선택)" />
-      <button type="submit">추가</button>
+      <div style="display:flex; gap:8px;">
+        <button type="submit" id="formSubmitBtn" style="flex:1;">추가</button>
+        <button type="button" id="formCancelBtn" style="flex:0 0 auto; background:var(--muted); display:none;">취소</button>
+      </div>
     </form>
 
     <h2 style="margin-top:28px;">엑셀로 일괄 등록</h2>
@@ -59,7 +63,7 @@
 
     <table>
       <thead>
-        <tr><th>공고명</th><th>기관</th><th>구분</th><th>마감일</th><th></th></tr>
+        <tr><th>공고명</th><th>기관</th><th>구분</th><th>금액</th><th>마감일</th><th></th></tr>
       </thead>
       <tbody id="noticeTableBody"></tbody>
     </table>

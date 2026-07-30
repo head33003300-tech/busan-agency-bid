@@ -24,6 +24,10 @@ const loginForm = document.getElementById("loginForm");
 const loginError = document.getElementById("loginError");
 const noticeForm = document.getElementById("noticeForm");
 const tableBody = document.getElementById("noticeTableBody");
+const formTitle = document.getElementById("formTitle");
+const formSubmitBtn = document.getElementById("formSubmitBtn");
+const formCancelBtn = document.getElementById("formCancelBtn");
+let editingId = null; // null이면 신규 추가 모드, 값이 있으면 그 문서를 수정 중
 
 loginForm.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -50,6 +54,16 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
+function resetForm() {
+  noticeForm.reset();
+  editingId = null;
+  formTitle.textContent = "공고 수동 추가";
+  formSubmitBtn.textContent = "추가";
+  formCancelBtn.style.display = "none";
+}
+
+formCancelBtn.addEventListener("click", resetForm);
+
 noticeForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const today = new Date();
@@ -58,12 +72,34 @@ noticeForm.addEventListener("submit", async (e) => {
     String(today.getMonth() + 1).padStart(2, "0") +
     String(today.getDate()).padStart(2, "0");
 
+  const baseAmountRaw = document.getElementById("baseAmount").value;
+
+  if (editingId) {
+    await setDoc(
+      doc(db, "notices", editingId),
+      {
+        title: document.getElementById("title").value,
+        org: document.getElementById("org").value,
+        type: document.getElementById("type").value,
+        postedAt: document.getElementById("postedAt").value || null,
+        closeAt: document.getElementById("closeAt").value || null,
+        baseAmount: baseAmountRaw ? Number(baseAmountRaw) : null,
+        detailUrl: document.getElementById("detailUrl").value || null,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+    resetForm();
+    return;
+  }
+
   const notice = {
     title: document.getElementById("title").value,
     org: document.getElementById("org").value,
     type: document.getElementById("type").value,
     postedAt: document.getElementById("postedAt").value || null,
     closeAt: document.getElementById("closeAt").value || null,
+    baseAmount: baseAmountRaw ? Number(baseAmountRaw) : null,
     detailUrl: document.getElementById("detailUrl").value || null,
     source: "manual",
     firstSeenAt: todayStr,
@@ -75,22 +111,17 @@ noticeForm.addEventListener("submit", async (e) => {
 });
 
 // ── 엑셀 일괄 등록 ─────────────────────────────────────
-// g2b.go.kr "입찰공고목록" 다운로드 파일 형식:
-//   1~3행: 생성자/생성일 등 메타정보 (무시)
-//   4행: 헤더(업무구분, 업무여부, 구분, 입찰공고번호, 공고명, 공고기관, 수요기관, 게시일시(입찰마감일시))
-//   5행부터: 데이터. 날짜는 "2026/07/27 10:00(2026/08/05 11:00)" 한 셀에 게시일시(마감일시)가 같이 들어있음
 const excelFileInput = document.getElementById("excelFile");
 const excelUploadBtn = document.getElementById("excelUploadBtn");
 const excelStatus = document.getElementById("excelStatus");
 
 function parsePostedCloseCell(raw) {
-  // "2026/07/27 10:00(2026/08/05 11:00)" → { postedAt, closeAt }
   if (!raw) return { postedAt: null, closeAt: null };
   const str = String(raw).trim();
   const m = str.match(/^(.+?)\((.+?)\)$/);
   const toStd = (s) => {
     const t = s.trim().replace(/\//g, "-");
-    return /:\d{2}$/.test(t) ? `${t}:00` : t; // 초 단위 없으면 :00 붙임
+    return /:\d{2}$/.test(t) ? `${t}:00` : t;
   };
   if (m) {
     return { postedAt: toStd(m[1]), closeAt: toStd(m[2]) };
@@ -107,6 +138,13 @@ function normalizeType(raw) {
   return s || "기타";
 }
 
+function buildDetailUrl(bidNtceNo) {
+  const parts = String(bidNtceNo).split("-");
+  if (parts.length < 2) return null;
+  const [no, ord] = parts;
+  return `https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo=${no}&bidPbancOrd=${ord}`;
+}
+
 excelUploadBtn.addEventListener("click", async () => {
   const file = excelFileInput.files[0];
   if (!file) {
@@ -121,7 +159,6 @@ excelUploadBtn.addEventListener("click", async () => {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
 
-    // "입찰공고번호" 라는 헤더가 있는 행을 찾아서 그 다음 줄부터 데이터로 처리
     const headerIdx = rows.findIndex((r) => r.includes("입찰공고번호"));
     if (headerIdx === -1) {
       excelStatus.textContent = "형식을 인식하지 못했어요. g2b.go.kr에서 받은 원본 그대로 업로드해주세요.";
@@ -165,7 +202,7 @@ excelUploadBtn.addEventListener("click", async () => {
           dminsttNm: dm,
           postedAt,
           closeAt,
-          detailUrl: null,
+          detailUrl: buildDetailUrl(bidNtceNo),
           source: "manual-excel",
           firstSeenAt: todayStr,
           firstSeenTime: new Date().toISOString(),
@@ -191,13 +228,18 @@ function subscribeNotices() {
     tableBody.innerHTML = snapshot.docs
       .map((d) => {
         const n = d.data();
+        const amountDisplay = n.baseAmount ? Number(n.baseAmount).toLocaleString("ko-KR") : "-";
         return `
         <tr>
           <td>${n.title}</td>
           <td>${n.org || ""}</td>
           <td>${n.type || ""}</td>
+          <td>${amountDisplay}</td>
           <td>${n.closeAt || "-"}</td>
-          <td class="row-actions"><button data-id="${d.id}">삭제</button></td>
+          <td class="row-actions">
+            <button data-edit-id="${d.id}" style="background:var(--navy-500);">수정</button>
+            <button data-id="${d.id}">삭제</button>
+          </td>
         </tr>`;
       })
       .join("");
@@ -207,6 +249,28 @@ function subscribeNotices() {
         if (confirm("삭제하시겠습니까?")) {
           await deleteDoc(doc(db, "notices", btn.dataset.id));
         }
+      });
+    });
+
+    tableBody.querySelectorAll("button[data-edit-id]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const docSnap = snapshot.docs.find((d) => d.id === btn.dataset.editId);
+        if (!docSnap) return;
+        const n = docSnap.data();
+
+        editingId = docSnap.id;
+        document.getElementById("title").value = n.title || "";
+        document.getElementById("org").value = n.org || "";
+        document.getElementById("type").value = n.type || "물품";
+        document.getElementById("postedAt").value = (n.postedAt || "").slice(0, 10);
+        document.getElementById("closeAt").value = (n.closeAt || "").slice(0, 10);
+        document.getElementById("baseAmount").value = n.baseAmount || "";
+        document.getElementById("detailUrl").value = n.detailUrl || "";
+
+        formTitle.textContent = "공고 수정";
+        formSubmitBtn.textContent = "저장";
+        formCancelBtn.style.display = "block";
+        noticeForm.scrollIntoView({ behavior: "smooth" });
       });
     });
   });
