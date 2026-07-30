@@ -51,6 +51,17 @@ const BUSAN_KEYWORDS = [
   "한국해양진흥공사",
   "부경대학교",
   "한국해양대학교",
+  "경성대학교",
+  "고신대학교",
+  "동명대학교",
+  "동서대학교",
+  "동아대학교",
+  "동의대학교",
+  "신라대학교",
+  "경남정보대학교",
+  "대동대학교",
+  "동의과학대학교",
+  "화신사이버대학교",
 ];
 
 // 전국에 지사/사업소가 있어서 "기관명만 보면" 다른 지역 공고까지 다 걸리는 기관들.
@@ -185,8 +196,6 @@ function httpsGetJson(url) {
 
 // ⚠️ 임시 백필용 — 다 끝나면 아래 두 줄을 지우고, fetchOperation 안의
 // ${BACKFILL_START}/${BACKFILL_END}를 ${todayStr()}로 되돌릴 것
-const BACKFILL_START = "20260629";
-const BACKFILL_END = "20260729";
 
 async function fetchOperation(op, apiKey) {
   const numOfRows = 300;
@@ -195,7 +204,7 @@ async function fetchOperation(op, apiKey) {
   const collected = [];
 
   while ((pageNo - 1) * numOfRows < totalCount) {
-    const url = `${BASE_URL}/${op.path}?ServiceKey=${apiKey}&pageNo=${pageNo}&numOfRows=${numOfRows}&type=json&inqryDiv=1&inqryBgnDt=${BACKFILL_START}0000&inqryEndDt=${BACKFILL_END}2359`;
+    const url = `${BASE_URL}/${op.path}?ServiceKey=${apiKey}&pageNo=${pageNo}&numOfRows=${numOfRows}&type=json&inqryDiv=1&inqryBgnDt=${todayStr()}0000&inqryEndDt=${todayStr()}2359`;
 
     const { status, body } = await httpsGetJson(url);
     if (status !== 200) {

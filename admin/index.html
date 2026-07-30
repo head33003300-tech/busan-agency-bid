@@ -6,14 +6,19 @@
 <title>관리자 - 부산 공공기관 사업공고</title>
 <link rel="stylesheet" href="../style.css" />
 <style>
-  .login-box, .admin-panel { max-width: 480px; margin: 60px auto; padding: 20px; }
+  body { background: var(--bg); }
+  .login-box, .admin-panel { max-width: 480px; margin: 60px auto; padding: 24px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
   .admin-panel { max-width: 720px; }
+  .login-box h2, .admin-panel h2 { color: var(--navy-900); margin-top: 0; }
   form { display: flex; flex-direction: column; gap: 10px; }
-  form input, form select { padding: 10px; border: 1px solid #e5e7eb; border-radius: 8px; }
-  button { padding: 10px; border: none; border-radius: 8px; background: #1a56db; color: #fff; cursor: pointer; }
-  .row-actions button { background: #ef4444; padding: 4px 10px; font-size: 12px; }
+  form input, form select { padding: 10px; border: 1px solid var(--line); border-radius: 8px; font-family: inherit; }
+  button { padding: 10px; border: none; border-radius: 8px; background: var(--navy-700); color: #fff; cursor: pointer; font-weight: 600; }
+  button:hover { background: var(--navy-900); }
+  .row-actions button { background: var(--signal-due); padding: 4px 10px; font-size: 12px; }
+  .row-actions button:hover { background: #a3172f; }
   table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
-  th, td { border-bottom: 1px solid #e5e7eb; padding: 8px; text-align: left; }
+  th { color: var(--muted); font-weight: 600; text-align: left; padding: 8px; border-bottom: 1px solid var(--line); }
+  td { border-bottom: 1px solid var(--line); padding: 8px; }
 </style>
 </head>
 <body>
@@ -24,7 +29,7 @@
       <input type="password" id="password" placeholder="비밀번호" required />
       <button type="submit">로그인</button>
     </form>
-    <p id="loginError" style="color:#dc2626; font-size:13px;"></p>
+    <p id="loginError" style="color:var(--signal-due); font-size:13px;"></p>
   </div>
 
   <div id="adminPanel" class="admin-panel" style="display:none;">
@@ -44,6 +49,14 @@
       <button type="submit">추가</button>
     </form>
 
+    <h2 style="margin-top:28px;">엑셀로 일괄 등록</h2>
+    <p style="font-size:13px; color:var(--muted); margin-top:-6px;">
+      g2b.go.kr에서 내려받은 "입찰공고목록" 엑셀 파일을 그대로 업로드하면 자동으로 등록돼요.
+    </p>
+    <input type="file" id="excelFile" accept=".xlsx,.xls" />
+    <button id="excelUploadBtn" style="margin-top:8px;">일괄 등록</button>
+    <p id="excelStatus" style="font-size:13px; color:var(--muted);"></p>
+
     <table>
       <thead>
         <tr><th>공고명</th><th>기관</th><th>구분</th><th>마감일</th><th></th></tr>
@@ -51,9 +64,10 @@
       <tbody id="noticeTableBody"></tbody>
     </table>
 
-    <button id="logoutBtn" style="background:#6b7280; margin-top:20px;">로그아웃</button>
+    <button id="logoutBtn" style="background:var(--muted); margin-top:20px;">로그아웃</button>
   </div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script type="module" src="../firebase-config.js"></script>
   <script type="module" src="admin.js"></script>
 </body>
