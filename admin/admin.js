@@ -73,6 +73,7 @@ noticeForm.addEventListener("submit", async (e) => {
     String(today.getDate()).padStart(2, "0");
 
   const baseAmountRaw = document.getElementById("baseAmount").value;
+  const remarksRaw = document.getElementById("remarks").value.trim();
 
   if (editingId) {
     await setDoc(
@@ -85,6 +86,7 @@ noticeForm.addEventListener("submit", async (e) => {
         closeAt: document.getElementById("closeAt").value || null,
         baseAmount: baseAmountRaw ? Number(baseAmountRaw) : null,
         detailUrl: document.getElementById("detailUrl").value || null,
+        remarks: remarksRaw || null,
         updatedAt: new Date().toISOString(),
       },
       { merge: true }
@@ -101,6 +103,7 @@ noticeForm.addEventListener("submit", async (e) => {
     closeAt: document.getElementById("closeAt").value || null,
     baseAmount: baseAmountRaw ? Number(baseAmountRaw) : null,
     detailUrl: document.getElementById("detailUrl").value || null,
+    remarks: remarksRaw || null,
     source: "manual",
     firstSeenAt: todayStr,
     isExtended: false,
@@ -203,6 +206,7 @@ excelUploadBtn.addEventListener("click", async () => {
           postedAt,
           closeAt,
           detailUrl: buildDetailUrl(bidNtceNo),
+          remarks: remarksRaw || null,
           source: "manual-excel",
           firstSeenAt: todayStr,
           firstSeenTime: new Date().toISOString(),
@@ -239,6 +243,11 @@ function renderTable() {
   tableBody.innerHTML = filtered
     .map(({ id, data: n }) => {
       const amountDisplay = n.baseAmount ? Number(n.baseAmount).toLocaleString("ko-KR") : "-";
+      const remarksDisplay = n.remarks
+        ? n.remarks.length > 15
+          ? n.remarks.slice(0, 15) + "…"
+          : n.remarks
+        : "-";
       return `
       <tr>
         <td>${n.title}</td>
@@ -246,6 +255,7 @@ function renderTable() {
         <td>${n.type || ""}</td>
         <td>${amountDisplay}</td>
         <td>${n.closeAt || "-"}</td>
+        <td title="${(n.remarks || "").replace(/"/g, "&quot;")}">${remarksDisplay}</td>
         <td class="row-actions">
           <button data-edit-id="${id}" style="background:var(--navy-500);">수정</button>
           <button data-id="${id}">삭제</button>
@@ -276,6 +286,7 @@ function renderTable() {
       document.getElementById("closeAt").value = (n.closeAt || "").slice(0, 10);
       document.getElementById("baseAmount").value = n.baseAmount || "";
       document.getElementById("detailUrl").value = n.detailUrl || "";
+      document.getElementById("remarks").value = n.remarks || "";
 
       formTitle.textContent = "공고 수정";
       formSubmitBtn.textContent = "저장";

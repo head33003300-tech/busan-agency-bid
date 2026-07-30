@@ -136,6 +136,7 @@ function openModal(bidNtceNo) {
     <div class="modal-row"><span class="label">공고일</span><span class="value">${n.postedAt || "-"}</span></div>
     <div class="modal-row"><span class="label">마감일</span><span class="value">${n.closeAt || "-"}</span></div>
     ${amount ? `<div class="modal-row"><span class="label">추정가격</span><span class="value">${amount}</span></div>` : ""}
+    ${n.remarks ? `<div class="modal-row"><span class="label">비고</span><span class="value">${n.remarks}</span></div>` : ""}
     ${n.detailUrl ? `<a class="modal-link-btn" href="${n.detailUrl}" target="_blank" rel="noopener">나라장터 원문 공고 열기 →</a>` : ""}
   `;
   detailModal.style.display = "flex";
