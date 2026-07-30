@@ -386,15 +386,30 @@ window.addEventListener("appinstalled", () => {
   if (installBtn) installBtn.style.display = "none";
 });
 
+// ── 새 공고 알림 받기/해제 ─────────────────────────────
 const VAPID_KEY =
   "BC3HRjI4WdXHRPZG6Cy4iOGkG_8NIky_EKDHiZNZ_5QycROvJMyW9opS_tdTgUZOhKTbAgoyEk2mg7wVGX9Heyk";
 const notifyBtn = document.getElementById("notifyBtn");
+const notifyPrefs = document.getElementById("notifyPrefs");
+const notifyKeywordsInput = document.getElementById("notifyKeywords");
+const notifyPrefsSaveBtn = document.getElementById("notifyPrefsSaveBtn");
+const notifyPrefsMsg = document.getElementById("notifyPrefsMsg");
 const SUBSCRIBED_LABEL = "🔕 알림 해제하기";
 const UNSUBSCRIBED_LABEL = "🔔 새 공고 알림 받기";
+
+function showNotifyPrefs() {
+  notifyPrefs.style.display = "flex";
+  notifyKeywordsInput.value = localStorage.getItem("fcmKeywords") || "";
+}
+
+function hideNotifyPrefs() {
+  notifyPrefs.style.display = "none";
+}
 
 let savedToken = localStorage.getItem("fcmToken");
 if (savedToken && notifyBtn) {
   notifyBtn.textContent = SUBSCRIBED_LABEL;
+  showNotifyPrefs();
 }
 
 async function subscribeToNotifications() {
@@ -419,9 +434,11 @@ async function subscribeToNotifications() {
   await setDoc(doc(db, "subscribers", token), {
     token,
     subscribedAt: new Date().toISOString(),
+    keywords: [],
   });
   localStorage.setItem("fcmToken", token);
   notifyBtn.textContent = SUBSCRIBED_LABEL;
+  showNotifyPrefs();
 }
 
 async function unsubscribeFromNotifications() {
@@ -436,7 +453,9 @@ async function unsubscribeFromNotifications() {
     // 이미 만료된 토큰 등은 무시
   }
   localStorage.removeItem("fcmToken");
+  localStorage.removeItem("fcmKeywords");
   notifyBtn.textContent = UNSUBSCRIBED_LABEL;
+  hideNotifyPrefs();
 }
 
 if (notifyBtn) {
@@ -458,6 +477,27 @@ if (notifyBtn) {
       alert("알림 설정 중 오류가 발생했습니다.");
     } finally {
       notifyBtn.disabled = false;
+    }
+  });
+}
+
+if (notifyPrefsSaveBtn) {
+  notifyPrefsSaveBtn.addEventListener("click", async () => {
+    const token = localStorage.getItem("fcmToken");
+    if (!token) return;
+    const keywords = notifyKeywordsInput.value
+      .split(",")
+      .map((k) => k.trim())
+      .filter(Boolean);
+    try {
+      await setDoc(doc(db, "subscribers", token), { keywords }, { merge: true });
+      localStorage.setItem("fcmKeywords", notifyKeywordsInput.value.trim());
+      notifyPrefsMsg.textContent =
+        keywords.length === 0 ? "저장됨 (전체 알림)" : `저장됨 (${keywords.length}개 키워드)`;
+      setTimeout(() => (notifyPrefsMsg.textContent = ""), 3000);
+    } catch (err) {
+      console.error(err);
+      notifyPrefsMsg.textContent = "저장 실패";
     }
   });
 }

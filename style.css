@@ -99,6 +99,48 @@ body {
 .notify-btn:hover { background: rgba(255, 255, 255, 0.16); }
 .notify-btn:disabled { opacity: 0.6; cursor: default; }
 
+.notify-prefs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.notify-prefs input {
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  width: 280px;
+  max-width: 70vw;
+}
+
+.notify-prefs input::placeholder { color: rgba(255, 255, 255, 0.6); }
+
+.notify-prefs button {
+  padding: 9px 14px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.notify-prefs button:hover { background: rgba(255, 255, 255, 0.26); }
+
+.notify-prefs span {
+  font-size: 12px;
+  color: #cfe4f5;
+}
+
 .tile-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

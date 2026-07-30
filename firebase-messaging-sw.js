@@ -16,7 +16,11 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   const title = payload.notification?.title || "부산 신규 공고";
   const body = payload.notification?.body || "새 공고가 등록되었습니다.";
-  self.registration.showNotification(title, { body });
+  self.registration.showNotification(title, {
+    body,
+    vibrate: [200, 100, 200, 100, 200],
+    icon: "/icons/icon-192.png",
+  });
 });
 
 // PWA 설치(홈 화면 추가) 조건 충족을 위한 최소 fetch 핸들러 (별도 캐싱은 하지 않고 그대로 통과)

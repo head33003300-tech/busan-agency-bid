@@ -20,6 +20,11 @@
     <p class="sub">나라장터 기반 실시간 모니터링 (자동 수집)</p>
     <button id="notifyBtn" class="notify-btn">🔔 새 공고 알림 받기</button>
     <button id="installBtn" class="notify-btn" style="display:none;">📲 앱으로 설치하기</button>
+    <div id="notifyPrefs" class="notify-prefs" style="display:none;">
+      <input type="text" id="notifyKeywords" placeholder="관심 키워드 (쉼표로 구분, 비우면 전체 알림) 예: 한국남부발전, 환경" />
+      <button id="notifyPrefsSaveBtn">설정 저장</button>
+      <span id="notifyPrefsMsg"></span>
+    </div>
   </header>
 
   <main>

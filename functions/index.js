@@ -337,7 +337,21 @@ exports.notifyNewNotice = onDocumentCreated(
       logger.info("등록된 알림 구독자가 없음");
       return;
     }
-    const tokens = subsSnap.docs.map((d) => d.id);
+
+    // 구독자마다 설정한 키워드가 있으면(공고명/기관명에 하나라도 포함될 때만),
+    // 없으면(빈 배열/미설정) 전체 공고에 대해 알림 발송
+    const noticeText = `${notice.title || ""} ${notice.org || ""}`.toLowerCase();
+    const matchedDocs = subsSnap.docs.filter((d) => {
+      const keywords = d.data().keywords;
+      if (!keywords || keywords.length === 0) return true;
+      return keywords.some((kw) => noticeText.includes(String(kw).toLowerCase()));
+    });
+
+    if (matchedDocs.length === 0) {
+      logger.info("키워드 필터에 맞는 구독자가 없음");
+      return;
+    }
+    const tokens = matchedDocs.map((d) => d.id);
 
     const message = {
       notification: {
