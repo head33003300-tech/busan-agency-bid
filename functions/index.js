@@ -196,6 +196,8 @@ function httpsGetJson(url) {
 
 // ⚠️ 임시 백필용 — 다 끝나면 아래 두 줄을 지우고, fetchOperation 안의
 // ${BACKFILL_START}/${BACKFILL_END}를 ${todayStr()}로 되돌릴 것
+const BACKFILL_START = "20260629";
+const BACKFILL_END = "20260729";
 
 async function fetchOperation(op, apiKey) {
   const numOfRows = 300;
@@ -204,7 +206,7 @@ async function fetchOperation(op, apiKey) {
   const collected = [];
 
   while ((pageNo - 1) * numOfRows < totalCount) {
-    const url = `${BASE_URL}/${op.path}?ServiceKey=${apiKey}&pageNo=${pageNo}&numOfRows=${numOfRows}&type=json&inqryDiv=1&inqryBgnDt=${todayStr()}0000&inqryEndDt=${todayStr()}2359`;
+    const url = `${BASE_URL}/${op.path}?ServiceKey=${apiKey}&pageNo=${pageNo}&numOfRows=${numOfRows}&type=json&inqryDiv=1&inqryBgnDt=${BACKFILL_START}0000&inqryEndDt=${BACKFILL_END}2359`;
 
     const { status, body } = await httpsGetJson(url);
     if (status !== 200) {
@@ -239,6 +241,90 @@ async function fetchOperation(op, apiKey) {
   }
 
   return collected;
+}
+
+// ── 한국남부발전 자체 API 연동 ──────────────────────────
+// 나라장터에 안 잡히는 "연계기관"(자체 전자조달) 공고를 보완하기 위한 별도 소스.
+// data.go.kr의 "한국남부발전(주)_입찰정보"(B552520/BidsInfo) API 사용.
+// ⚠️ 이 API의 category 필드는 "용역/공사"를 정확히 구분 안 해서(자가측정 "용역"도
+//    "공사영역"으로 분류됨), category 대신 제목에 "용역"이 포함되는지로 판단함.
+const NAMBU_BASE_URL = "https://apis.data.go.kr/B552520/BidsInfo/getDataService";
+
+// 한국남부발전 소속 비-부산 발전소(하동빛드림본부, 삼척빛드림본부 등)에서 올린 공고는 제외
+const NAMBU_NON_BUSAN_KEYWORDS = ["하동", "삼척", "안동", "영월", "제주"];
+
+function toNambuNoticeDoc(item) {
+  const postedAt = item.annday3 || item.annday2 || item.annday1 || null;
+  const closeAt = item.subedt3 || item.appledt3 || item.deadl2 || null;
+  const baseAmount = item.estprc3 || item.estprc2 || item.estprc || null;
+
+  return {
+    bidNtceNo: item.announceno || null,
+    type: "용역",
+    title: item.title || "",
+    org: "한국남부발전주식회사",
+    ntceInsttNm: "한국남부발전주식회사",
+    dminsttNm: item.dprtnm || "",
+    region: "",
+    bidMethod: "",
+    postedAt: formatNambuDate(postedAt),
+    closeAt: formatNambuDate(closeAt),
+    baseAmount,
+    detailUrl: null,
+    source: "nambu-api",
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+// 남부발전 API 날짜 형식(YYYYMMDDHHmmss 또는 YYYYMMDD)을 저희 표준 형식(YYYY-MM-DD HH:mm:ss)으로 변환
+function formatNambuDate(raw) {
+  if (!raw) return null;
+  const digits = String(raw).replace(/[^0-9]/g, "");
+  if (digits.length < 8) return null;
+  const y = digits.slice(0, 4);
+  const m = digits.slice(4, 6);
+  const d = digits.slice(6, 8);
+  const hh = digits.slice(8, 10) || "00";
+  const mm = digits.slice(10, 12) || "00";
+  const ss = digits.slice(12, 14) || "00";
+  return `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
+}
+
+async function fetchNambuPower(apiKey) {
+  const url = `${NAMBU_BASE_URL}?ServiceKey=${apiKey}&pageNo=1&numOfRows=100&strSdate=${BACKFILL_START}&strEdate=${BACKFILL_END}`;
+
+  const { status, body } = await httpsGetJson(url);
+  if (status !== 200) {
+    logger.error(`한국남부발전 API 호출 실패 ${status}`, body.slice(0, 500));
+    return [];
+  }
+
+  // 이 API는 XML로 응답함(요청에 type=json 파라미터가 없음)
+  const items = [];
+  const itemBlocks = body.match(/<item>[\s\S]*?<\/item>/g) || [];
+  for (const block of itemBlocks) {
+    const item = {};
+    const fieldRegex = /<(\w+)>([\s\S]*?)<\/\1>/g;
+    let m;
+    while ((m = fieldRegex.exec(block)) !== null) {
+      item[m[1]] = m[2].trim();
+    }
+    items.push(item);
+  }
+
+  const results = [];
+  for (const item of items) {
+    const title = item.title || "";
+    const dprtnm = item.dprtnm || "";
+    if (!title.includes("용역")) continue; // 용역만 사용
+    const context = `${dprtnm} ${title}`;
+    const isBusan =
+      context.includes("부산") ||
+      !NAMBU_NON_BUSAN_KEYWORDS.some((kw) => context.includes(kw));
+    if (!isBusan) continue;
+    results.push(toNambuNoticeDoc(item));
+  }
+  return results;
 }
 
 function todayStr() {
@@ -351,28 +437,44 @@ exports.notifyNewNotice = onDocumentCreated(
       logger.info("키워드 필터에 맞는 구독자가 없음");
       return;
     }
-    const tokens = matchedDocs.map((d) => d.id);
 
-    const message = {
+    // 구독자의 진동 설정(vibrate)에 따라 두 그룹으로 나눠서 각각 발송
+    const vibrateOnTokens = matchedDocs
+      .filter((d) => d.data().vibrate !== false)
+      .map((d) => d.id);
+    const vibrateOffTokens = matchedDocs
+      .filter((d) => d.data().vibrate === false)
+      .map((d) => d.id);
+
+    const buildMessage = (tokens, vibrateFlag) => ({
       notification: {
         title: "부산 신규 공고 등록",
         body: notice.title || "새 공고가 등록되었습니다.",
       },
+      data: { vibrate: String(vibrateFlag) },
       webpush: {
         fcmOptions: {
           link: notice.detailUrl || "https://busan-agency-bid.pages.dev",
         },
       },
       tokens,
-    };
-
-    const res = await getMessaging().sendEachForMulticast(message);
-    logger.info(`알림 발송: 성공 ${res.successCount} / 실패 ${res.failureCount}`);
+    });
 
     const invalidTokens = [];
-    res.responses.forEach((r, i) => {
-      if (!r.success) invalidTokens.push(tokens[i]);
-    });
+    for (const [tokens, vibrateFlag] of [
+      [vibrateOnTokens, true],
+      [vibrateOffTokens, false],
+    ]) {
+      if (tokens.length === 0) continue;
+      const res = await getMessaging().sendEachForMulticast(buildMessage(tokens, vibrateFlag));
+      logger.info(
+        `알림 발송(진동 ${vibrateFlag}): 성공 ${res.successCount} / 실패 ${res.failureCount}`
+      );
+      res.responses.forEach((r, i) => {
+        if (!r.success) invalidTokens.push(tokens[i]);
+      });
+    }
+
     await Promise.all(
       invalidTokens.map((t) => db.collection("subscribers").doc(t).delete())
     );

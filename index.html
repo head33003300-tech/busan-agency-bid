@@ -22,6 +22,11 @@
     <button id="installBtn" class="notify-btn" style="display:none;">📲 앱으로 설치하기</button>
     <div id="notifyPrefs" class="notify-prefs" style="display:none;">
       <input type="text" id="notifyKeywords" placeholder="관심 키워드 (쉼표로 구분, 비우면 전체 알림) 예: 한국남부발전, 환경" />
+      <label class="toggle-switch">
+        <input type="checkbox" id="notifyVibrate" checked />
+        <span class="toggle-slider"></span>
+        <span class="toggle-label-text">진동</span>
+      </label>
       <button id="notifyPrefsSaveBtn">설정 저장</button>
       <span id="notifyPrefsMsg"></span>
     </div>
@@ -95,7 +100,7 @@
           <p class="loading">불러오는 중...</p>
         </section>
 
-        <h2>마감된 공고</h2>
+        <h2>마감된 공고 (최근 1일)</h2>
         <section id="closedList" class="notice-list closed-list">
           <p class="empty">마감된 공고가 없습니다.</p>
         </section>

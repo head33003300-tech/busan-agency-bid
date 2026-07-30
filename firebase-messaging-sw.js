@@ -16,9 +16,10 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   const title = payload.notification?.title || "부산 신규 공고";
   const body = payload.notification?.body || "새 공고가 등록되었습니다.";
+  const vibrateOn = payload.data?.vibrate !== "false";
   self.registration.showNotification(title, {
     body,
-    vibrate: [200, 100, 200, 100, 200],
+    ...(vibrateOn ? { vibrate: [200, 100, 200, 100, 200] } : {}),
     icon: "/icons/icon-192.png",
   });
 });

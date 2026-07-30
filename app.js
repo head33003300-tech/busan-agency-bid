@@ -14,6 +14,7 @@ import {
   getToken,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
 
+// ── 홈/서브 화면 요소 ──────────────────────────────────
 const homeView = document.getElementById("homeView");
 const subView = document.getElementById("subView");
 const backBtn = document.getElementById("backBtn");
@@ -53,9 +54,9 @@ const modalClose = document.getElementById("modalClose");
 
 let allNotices = [];
 let noticesById = new Map();
-let currentView = null;
+let currentView = null; // null이면 홈 화면
 let appliedRecommendCount = 20;
-let recommendApplied = false;
+let recommendApplied = false; // 조회 버튼을 한 번이라도 눌렀는지
 
 const VIEW_TITLES = {
   open: "✅ 현재 신청 가능 사업",
@@ -77,6 +78,7 @@ function todayStr() {
 function daysUntilClose(closeAt) {
   if (!closeAt) return null;
   let str = String(closeAt).trim();
+  // 시간 정보가 없이 날짜만 있는 경우(예: "2026-07-28")는 그날 23:59:59까지로 간주
   if (!/\d{1,2}:\d{2}/.test(str)) {
     str = str.slice(0, 10) + "T23:59:59";
   } else {
@@ -171,6 +173,9 @@ function renderSection(sectionEl, listEl, items) {
   listEl.innerHTML = items.map(cardHtml).join("");
 }
 
+// ── 화면 전환 ──────────────────────────────────────────
+// 히스토리에 상태를 남겨서, 모바일/브라우저 뒤로가기 버튼이
+// 앱을 바로 종료하지 않고 이전 화면(홈)으로 돌아가도록 함
 history.replaceState({ view: "home" }, "", location.pathname + location.search);
 
 function showHome() {
@@ -196,6 +201,7 @@ function showView(view, pushHistory = true) {
     if (view === "recommend") {
       simpleFilters.style.display = "none";
       recommendControls.style.display = "block";
+      // 처음으로 갔다가 다시 들어오면 이전 조회 결과는 초기화
       appliedRecommendCount = 20;
       recommendApplied = false;
       recommendCountInput.value = 20;
@@ -217,6 +223,7 @@ tiles.forEach((tile) => {
   tile.addEventListener("click", () => showView(tile.dataset.view));
 });
 
+// 뒤로가기 버튼도 history.back()으로 통일 (popstate가 실제 화면 전환을 처리)
 backBtn.addEventListener("click", () => history.back());
 
 window.addEventListener("popstate", (e) => {
@@ -224,10 +231,11 @@ window.addEventListener("popstate", (e) => {
   if (!view || view === "home") {
     showHome();
   } else {
-    showView(view, false);
+    showView(view, false); // 히스토리에 다시 쌓지 않음(popstate로 이미 이동한 상태)
   }
 });
 
+// ── 렌더링 ─────────────────────────────────────────────
 function render() {
   const openNotices = allNotices.filter((n) => {
     const d = daysUntilClose(n.closeAt);
@@ -255,11 +263,13 @@ function render() {
     return db_ - da;
   });
 
+  // 홈 화면 타일 카운트
   countOpenEl.textContent = openNotices.length;
   countDueSoonEl.textContent = dueSoonItems.length;
   countTodayEl.textContent = todayItems.length;
   countClosedEl.textContent = sortedClosed.length;
 
+  // 대시보드 내부 (보일 때만 갱신해도 되지만 항상 갱신해도 무방)
   renderSection(todaySection, todayList, todayItems);
   renderSection(extendedSection, extendedList, extendedItems);
   renderSection(dueSoonSection, dueSoonList, dueSoonItems);
@@ -345,7 +355,7 @@ recommendApplyBtn.addEventListener("click", () => {
   const n = Number(raw);
   if (raw === "" || !Number.isInteger(n) || n < 1) {
     recommendCountMsg.textContent = "숫자를 입력해주세요.";
-    return;
+    return; // 유효하지 않으면 이전 조회 결과를 그대로 유지
   }
   recommendCountMsg.textContent = "";
   appliedRecommendCount = n;
@@ -353,6 +363,7 @@ recommendApplyBtn.addEventListener("click", () => {
   render();
 });
 
+// ── 서비스워커 등록 (PWA 설치 조건 충족 + 알림 등록에 재사용) ──
 let swRegistration = null;
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker
@@ -363,6 +374,7 @@ if ("serviceWorker" in navigator) {
     .catch((err) => console.error("서비스워커 등록 실패:", err));
 }
 
+// ── 앱으로 설치하기 (PWA, 조건 충족 시에만 브라우저가 이벤트를 줌) ──
 const installBtn = document.getElementById("installBtn");
 let deferredInstallPrompt = null;
 
@@ -392,6 +404,7 @@ const VAPID_KEY =
 const notifyBtn = document.getElementById("notifyBtn");
 const notifyPrefs = document.getElementById("notifyPrefs");
 const notifyKeywordsInput = document.getElementById("notifyKeywords");
+const notifyVibrateInput = document.getElementById("notifyVibrate");
 const notifyPrefsSaveBtn = document.getElementById("notifyPrefsSaveBtn");
 const notifyPrefsMsg = document.getElementById("notifyPrefsMsg");
 const SUBSCRIBED_LABEL = "🔕 알림 해제하기";
@@ -400,12 +413,14 @@ const UNSUBSCRIBED_LABEL = "🔔 새 공고 알림 받기";
 function showNotifyPrefs() {
   notifyPrefs.style.display = "flex";
   notifyKeywordsInput.value = localStorage.getItem("fcmKeywords") || "";
+  notifyVibrateInput.checked = localStorage.getItem("fcmVibrate") !== "false";
 }
 
 function hideNotifyPrefs() {
   notifyPrefs.style.display = "none";
 }
 
+// 이전에 이 브라우저에서 구독한 적 있으면 버튼 상태 복원
 let savedToken = localStorage.getItem("fcmToken");
 if (savedToken && notifyBtn) {
   notifyBtn.textContent = SUBSCRIBED_LABEL;
@@ -435,6 +450,7 @@ async function subscribeToNotifications() {
     token,
     subscribedAt: new Date().toISOString(),
     keywords: [],
+    vibrate: true,
   });
   localStorage.setItem("fcmToken", token);
   notifyBtn.textContent = SUBSCRIBED_LABEL;
@@ -489,9 +505,11 @@ if (notifyPrefsSaveBtn) {
       .split(",")
       .map((k) => k.trim())
       .filter(Boolean);
+    const vibrate = notifyVibrateInput.checked;
     try {
-      await setDoc(doc(db, "subscribers", token), { keywords }, { merge: true });
+      await setDoc(doc(db, "subscribers", token), { keywords, vibrate }, { merge: true });
       localStorage.setItem("fcmKeywords", notifyKeywordsInput.value.trim());
+      localStorage.setItem("fcmVibrate", String(vibrate));
       notifyPrefsMsg.textContent =
         keywords.length === 0 ? "저장됨 (전체 알림)" : `저장됨 (${keywords.length}개 키워드)`;
       setTimeout(() => (notifyPrefsMsg.textContent = ""), 3000);
