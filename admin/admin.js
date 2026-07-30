@@ -222,56 +222,73 @@ excelUploadBtn.addEventListener("click", async () => {
   }
 });
 
+let allNoticeDocs = []; // { id, data } 형태로 최신 전체 목록 보관
+const adminSearch = document.getElementById("adminSearch");
+adminSearch.addEventListener("input", renderTable);
+
+function renderTable() {
+  const keyword = adminSearch.value.trim().toLowerCase();
+  const filtered = keyword
+    ? allNoticeDocs.filter(
+        ({ data: n }) =>
+          (n.title || "").toLowerCase().includes(keyword) ||
+          (n.org || "").toLowerCase().includes(keyword)
+      )
+    : allNoticeDocs;
+
+  tableBody.innerHTML = filtered
+    .map(({ id, data: n }) => {
+      const amountDisplay = n.baseAmount ? Number(n.baseAmount).toLocaleString("ko-KR") : "-";
+      return `
+      <tr>
+        <td>${n.title}</td>
+        <td>${n.org || ""}</td>
+        <td>${n.type || ""}</td>
+        <td>${amountDisplay}</td>
+        <td>${n.closeAt || "-"}</td>
+        <td class="row-actions">
+          <button data-edit-id="${id}" style="background:var(--navy-500);">수정</button>
+          <button data-id="${id}">삭제</button>
+        </td>
+      </tr>`;
+    })
+    .join("");
+
+  tableBody.querySelectorAll("button[data-id]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (confirm("삭제하시겠습니까?")) {
+        await deleteDoc(doc(db, "notices", btn.dataset.id));
+      }
+    });
+  });
+
+  tableBody.querySelectorAll("button[data-edit-id]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const found = allNoticeDocs.find((d) => d.id === btn.dataset.editId);
+      if (!found) return;
+      const n = found.data;
+
+      editingId = found.id;
+      document.getElementById("title").value = n.title || "";
+      document.getElementById("org").value = n.org || "";
+      document.getElementById("type").value = n.type || "물품";
+      document.getElementById("postedAt").value = (n.postedAt || "").slice(0, 10);
+      document.getElementById("closeAt").value = (n.closeAt || "").slice(0, 10);
+      document.getElementById("baseAmount").value = n.baseAmount || "";
+      document.getElementById("detailUrl").value = n.detailUrl || "";
+
+      formTitle.textContent = "공고 수정";
+      formSubmitBtn.textContent = "저장";
+      formCancelBtn.style.display = "block";
+      noticeForm.scrollIntoView({ behavior: "smooth" });
+    });
+  });
+}
+
 function subscribeNotices() {
   const q = query(collection(db, "notices"), orderBy("closeAt", "asc"));
   onSnapshot(q, (snapshot) => {
-    tableBody.innerHTML = snapshot.docs
-      .map((d) => {
-        const n = d.data();
-        const amountDisplay = n.baseAmount ? Number(n.baseAmount).toLocaleString("ko-KR") : "-";
-        return `
-        <tr>
-          <td>${n.title}</td>
-          <td>${n.org || ""}</td>
-          <td>${n.type || ""}</td>
-          <td>${amountDisplay}</td>
-          <td>${n.closeAt || "-"}</td>
-          <td class="row-actions">
-            <button data-edit-id="${d.id}" style="background:var(--navy-500);">수정</button>
-            <button data-id="${d.id}">삭제</button>
-          </td>
-        </tr>`;
-      })
-      .join("");
-
-    tableBody.querySelectorAll("button[data-id]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        if (confirm("삭제하시겠습니까?")) {
-          await deleteDoc(doc(db, "notices", btn.dataset.id));
-        }
-      });
-    });
-
-    tableBody.querySelectorAll("button[data-edit-id]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const docSnap = snapshot.docs.find((d) => d.id === btn.dataset.editId);
-        if (!docSnap) return;
-        const n = docSnap.data();
-
-        editingId = docSnap.id;
-        document.getElementById("title").value = n.title || "";
-        document.getElementById("org").value = n.org || "";
-        document.getElementById("type").value = n.type || "물품";
-        document.getElementById("postedAt").value = (n.postedAt || "").slice(0, 10);
-        document.getElementById("closeAt").value = (n.closeAt || "").slice(0, 10);
-        document.getElementById("baseAmount").value = n.baseAmount || "";
-        document.getElementById("detailUrl").value = n.detailUrl || "";
-
-        formTitle.textContent = "공고 수정";
-        formSubmitBtn.textContent = "저장";
-        formCancelBtn.style.display = "block";
-        noticeForm.scrollIntoView({ behavior: "smooth" });
-      });
-    });
+    allNoticeDocs = snapshot.docs.map((d) => ({ id: d.id, data: d.data() }));
+    renderTable();
   });
 }
