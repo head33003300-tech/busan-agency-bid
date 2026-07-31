@@ -206,7 +206,6 @@ excelUploadBtn.addEventListener("click", async () => {
           postedAt,
           closeAt,
           detailUrl: buildDetailUrl(bidNtceNo),
-          remarks: remarksRaw || null,
           source: "manual-excel",
           firstSeenAt: todayStr,
           firstSeenTime: new Date().toISOString(),

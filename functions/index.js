@@ -194,11 +194,6 @@ function httpsGetJson(url) {
   });
 }
 
-// ⚠️ 임시 백필용 — 다 끝나면 아래 두 줄을 지우고, fetchOperation 안의
-// ${BACKFILL_START}/${BACKFILL_END}를 ${todayStr()}로 되돌릴 것
-const BACKFILL_START = "20260629";
-const BACKFILL_END = "20260729";
-
 async function fetchOperation(op, apiKey) {
   const numOfRows = 300;
   let pageNo = 1;
@@ -206,7 +201,7 @@ async function fetchOperation(op, apiKey) {
   const collected = [];
 
   while ((pageNo - 1) * numOfRows < totalCount) {
-    const url = `${BASE_URL}/${op.path}?ServiceKey=${apiKey}&pageNo=${pageNo}&numOfRows=${numOfRows}&type=json&inqryDiv=1&inqryBgnDt=${BACKFILL_START}0000&inqryEndDt=${BACKFILL_END}2359`;
+    const url = `${BASE_URL}/${op.path}?ServiceKey=${apiKey}&pageNo=${pageNo}&numOfRows=${numOfRows}&type=json&inqryDiv=1&inqryBgnDt=${todayStr()}0000&inqryEndDt=${todayStr()}2359`;
 
     const { status, body } = await httpsGetJson(url);
     if (status !== 200) {
