@@ -447,21 +447,20 @@ exports.notifyNewNotice = onDocumentCreated(
       .filter((d) => d.data().vibrate === false)
       .map((d) => d.id);
 
-    const buildMessage = (tokens, vibrateFlag) => ({
-      notification: {
-        title: "부산 신규 공고 등록",
-        body: notice.title || "새 공고가 등록되었습니다.",
-      },
-      data: { vibrate: String(vibrateFlag) },
-      webpush: {
-        fcmOptions: {
-          // 외부(나라장터 등) 링크가 아니라 저희 사이트로 이동시키고, 쿼리 파라미터로
-          // 어떤 공고인지 넘겨서 app.js가 자동으로 그 공고의 상세 모달을 열게 함
-          link: `https://busan-agency-bid.pages.dev/?notice=${encodeURIComponent(notice.bidNtceNo || "")}`,
+    const buildMessage = (tokens, vibrateFlag) => {
+      const link = `https://busan-agency-bid.pages.dev/?notice=${encodeURIComponent(notice.bidNtceNo || "")}`;
+      return {
+        notification: {
+          title: "부산 신규 공고 등록",
+          body: notice.title || "새 공고가 등록되었습니다.",
         },
-      },
-      tokens,
-    });
+        data: { vibrate: String(vibrateFlag), link },
+        webpush: {
+          fcmOptions: { link },
+        },
+        tokens,
+      };
+    };
 
     const invalidTokens = [];
     for (const [tokens, vibrateFlag] of [
