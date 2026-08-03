@@ -3,7 +3,6 @@
  *
  * - 나라장터 오픈API(나라장터검색조건에 의한 입찰공고조회, PPSSrch)를 주기적으로 호출
  * - 발주기관명(공고기관/수요기관)에 "부산"이 포함된 공고만 필터링
- * - 한국남부발전 자체 API도 함께 수집
  * - Firestore 'notices' 컬렉션에 upsert (공고번호 기준 중복 방지)
  *
  * 환경변수(.env 또는 functions:config)로 다음 값을 설정해야 합니다.
@@ -92,8 +91,8 @@ const NON_BUSAN_LOCATION_KEYWORDS = [
   "서울사무소",
   "수도권",
   "인천",
-  "강원",
   "경기",
+  "강원",
   "대전",
   "세종",
   "대구",
@@ -237,8 +236,6 @@ async function fetchOperation(op, apiKey) {
 }
 
 // ── 한국남부발전 자체 API 연동 ──────────────────────────
-// 나라장터에 안 잡히는 "연계기관"(자체 전자조달) 공고를 보완하기 위한 별도 소스.
-// data.go.kr의 "한국남부발전(주)_입찰정보"(B552520/BidsInfo) API 사용.
 const NAMBU_BASE_URL = "https://apis.data.go.kr/B552520/BidsInfo/getDataService";
 
 const NAMBU_NON_BUSAN_KEYWORDS = ["하동", "삼척", "안동", "영월", "제주"];
@@ -249,10 +246,8 @@ function toNambuNoticeDoc(item) {
   const baseAmount = item.estprc3 || item.estprc2 || item.estprc || null;
   const bidNtceNo = item.announceno || null;
 
-  // 나라장터엔 개별 상세링크가 없어서, 자체 조달시스템 접속 안내 + 공고번호 검색 방법을
-  // 비고란에 자동으로 남겨줌
   const remarks = bidNtceNo
-    ? `이 공고는 발주기관 자체 조달시스템에 등록되어, 나라장터에서 별도 상세 링크를 지원하지 않습니다. 상세 열람을 희망하시는 경우 링크 접속 -> 통합검색창에 '${bidNtceNo}'로 검색 -> 빈 화면 -> 검색조건을 '공고번호'로 변경 후 재검색하여 확인 부탁드립니다.`
+    ? `이 공고는 발주기관 자체 조달시스템에 등록되어, 나라장터에서 별도 상세 링크를 지원하지 않습니다. 상세 열람을 희망하시는 경우 링크 접속 -> 통합검색창에 '${bidNtceNo}'로 검색 -> 빈 화면 -> 검색조건을 '공고번호'로 변경 후 재검색`
     : null;
 
   return {
@@ -358,7 +353,6 @@ exports.collectNaraNotices = onSchedule(
       await sleep(400);
     }
 
-    // 한국남부발전 자체 API도 같이 수집 (7월 데이터 지연 문제 해소 확인되어 재활성화)
     try {
       const nambuResults = await fetchNambuPower(apiKey);
       notices.push(...nambuResults);
