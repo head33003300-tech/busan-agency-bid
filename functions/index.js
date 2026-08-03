@@ -3,6 +3,7 @@
  *
  * - 나라장터 오픈API(나라장터검색조건에 의한 입찰공고조회, PPSSrch)를 주기적으로 호출
  * - 발주기관명(공고기관/수요기관)에 "부산"이 포함된 공고만 필터링
+ * - 한국남부발전 자체 API도 함께 수집
  * - Firestore 'notices' 컬렉션에 upsert (공고번호 기준 중복 방지)
  *
  * 환경변수(.env 또는 functions:config)로 다음 값을 설정해야 합니다.
@@ -91,8 +92,8 @@ const NON_BUSAN_LOCATION_KEYWORDS = [
   "서울사무소",
   "수도권",
   "인천",
-  "경기",
   "강원",
+  "경기",
   "대전",
   "세종",
   "대구",
@@ -127,14 +128,12 @@ function isBusanAgency(item) {
   const matchedKeyword = BUSAN_KEYWORDS.find((keyword) => targetOrg.includes(keyword));
   if (!matchedKeyword) return false;
 
-  // 전국 단위 기관(지사/사업소가 여러 지역에 있는 곳)이면 지역 문맥까지 확인
   const isNationwideAgency = NATIONWIDE_AGENCIES.some((agency) => targetOrg.includes(agency));
   if (isNationwideAgency) {
     const contextText = `${targetOrg} ${title} ${region}`;
     const hasBusanContext = BUSAN_CONTEXT_KEYWORDS.some((kw) => contextText.includes(kw));
     const hasNonBusanLocation = NON_BUSAN_LOCATION_KEYWORDS.some((kw) => contextText.includes(kw));
 
-    // 다른 지역은 명시되어 있는데 부산은 명시되지 않은 경우 제외
     if (hasNonBusanLocation && !hasBusanContext) {
       logger.info(`타지역 공고 제외: ${title} / 기관: ${targetOrg}`);
       return false;
@@ -154,7 +153,6 @@ function toNoticeDoc(item, type) {
     type,
     title: item.bidNtceNm || "",
     org: displayOrg,
-    // 디버깅용: 어떤 필드 때문에 걸렸는지 확인할 수 있게 원본 기관명 둘 다 저장
     ntceInsttNm: ntce,
     dminsttNm: dm,
     region: item.prtcptPsblRgnNm || "",
@@ -241,20 +239,24 @@ async function fetchOperation(op, apiKey) {
 // ── 한국남부발전 자체 API 연동 ──────────────────────────
 // 나라장터에 안 잡히는 "연계기관"(자체 전자조달) 공고를 보완하기 위한 별도 소스.
 // data.go.kr의 "한국남부발전(주)_입찰정보"(B552520/BidsInfo) API 사용.
-// ⚠️ 이 API의 category 필드는 "용역/공사"를 정확히 구분 안 해서(자가측정 "용역"도
-//    "공사영역"으로 분류됨), category 대신 제목에 "용역"이 포함되는지로 판단함.
 const NAMBU_BASE_URL = "https://apis.data.go.kr/B552520/BidsInfo/getDataService";
 
-// 한국남부발전 소속 비-부산 발전소(하동빛드림본부, 삼척빛드림본부 등)에서 올린 공고는 제외
 const NAMBU_NON_BUSAN_KEYWORDS = ["하동", "삼척", "안동", "영월", "제주"];
 
 function toNambuNoticeDoc(item) {
   const postedAt = item.annday3 || item.annday2 || item.annday1 || null;
   const closeAt = item.subedt3 || item.appledt3 || item.deadl2 || null;
   const baseAmount = item.estprc3 || item.estprc2 || item.estprc || null;
+  const bidNtceNo = item.announceno || null;
+
+  // 나라장터엔 개별 상세링크가 없어서, 자체 조달시스템 접속 안내 + 공고번호 검색 방법을
+  // 비고란에 자동으로 남겨줌
+  const remarks = bidNtceNo
+    ? `이 공고는 발주기관 자체 조달시스템에 등록되어, 나라장터에서 별도 상세 링크를 지원하지 않습니다. 상세 열람을 희망하시는 경우 링크 접속 -> 통합검색창에 '${bidNtceNo}'로 검색 -> 빈 화면 -> 검색조건을 '공고번호'로 변경 후 재검색하여 확인 부탁드립니다.`
+    : null;
 
   return {
-    bidNtceNo: item.announceno || null,
+    bidNtceNo,
     type: "용역",
     title: item.title || "",
     org: "한국남부발전주식회사",
@@ -265,13 +267,13 @@ function toNambuNoticeDoc(item) {
     postedAt: formatNambuDate(postedAt),
     closeAt: formatNambuDate(closeAt),
     baseAmount,
-    detailUrl: null,
+    detailUrl: "https://srm.kepco.net/index.do",
+    remarks,
     source: "nambu-api",
     updatedAt: new Date().toISOString(),
   };
 }
 
-// 남부발전 API 날짜 형식(YYYYMMDDHHmmss 또는 YYYYMMDD)을 저희 표준 형식(YYYY-MM-DD HH:mm:ss)으로 변환
 function formatNambuDate(raw) {
   if (!raw) return null;
   const digits = String(raw).replace(/[^0-9]/g, "");
@@ -286,7 +288,7 @@ function formatNambuDate(raw) {
 }
 
 async function fetchNambuPower(apiKey) {
-  const url = `${NAMBU_BASE_URL}?ServiceKey=${apiKey}&pageNo=1&numOfRows=100&strSdate=${BACKFILL_START}&strEdate=${BACKFILL_END}`;
+  const url = `${NAMBU_BASE_URL}?ServiceKey=${apiKey}&pageNo=1&numOfRows=100&strSdate=${todayStr()}&strEdate=${todayStr()}`;
 
   const { status, body } = await httpsGetJson(url);
   if (status !== 200) {
@@ -294,7 +296,6 @@ async function fetchNambuPower(apiKey) {
     return [];
   }
 
-  // 이 API는 XML로 응답함(요청에 type=json 파라미터가 없음)
   const items = [];
   const itemBlocks = body.match(/<item>[\s\S]*?<\/item>/g) || [];
   for (const block of itemBlocks) {
@@ -311,7 +312,7 @@ async function fetchNambuPower(apiKey) {
   for (const item of items) {
     const title = item.title || "";
     const dprtnm = item.dprtnm || "";
-    if (!title.includes("용역")) continue; // 용역만 사용
+    if (!title.includes("용역")) continue;
     const context = `${dprtnm} ${title}`;
     const isBusan =
       context.includes("부산") ||
@@ -355,6 +356,14 @@ exports.collectNaraNotices = onSchedule(
       const result = await fetchOperation(op, apiKey);
       notices.push(...result);
       await sleep(400);
+    }
+
+    // 한국남부발전 자체 API도 같이 수집 (7월 데이터 지연 문제 해소 확인되어 재활성화)
+    try {
+      const nambuResults = await fetchNambuPower(apiKey);
+      notices.push(...nambuResults);
+    } catch (e) {
+      logger.error("한국남부발전 API 수집 중 오류", e.message || e);
     }
 
     await db.collection("meta").doc("status").set(
@@ -419,8 +428,6 @@ exports.notifyNewNotice = onDocumentCreated(
       return;
     }
 
-    // 구독자마다 설정한 키워드가 있으면(공고명/기관명에 하나라도 포함될 때만),
-    // 없으면(빈 배열/미설정) 전체 공고에 대해 알림 발송
     const noticeText = `${notice.title || ""} ${notice.org || ""}`.toLowerCase();
     const matchedDocs = subsSnap.docs.filter((d) => {
       const keywords = d.data().keywords;
@@ -433,7 +440,6 @@ exports.notifyNewNotice = onDocumentCreated(
       return;
     }
 
-    // 구독자의 진동 설정(vibrate)에 따라 두 그룹으로 나눠서 각각 발송
     const vibrateOnTokens = matchedDocs
       .filter((d) => d.data().vibrate !== false)
       .map((d) => d.id);
