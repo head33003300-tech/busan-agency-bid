@@ -455,7 +455,9 @@ exports.notifyNewNotice = onDocumentCreated(
       data: { vibrate: String(vibrateFlag) },
       webpush: {
         fcmOptions: {
-          link: notice.detailUrl || "https://busan-agency-bid.pages.dev",
+          // 외부(나라장터 등) 링크가 아니라 저희 사이트로 이동시키고, 쿼리 파라미터로
+          // 어떤 공고인지 넘겨서 app.js가 자동으로 그 공고의 상세 모달을 열게 함
+          link: `https://busan-agency-bid.pages.dev/?notice=${encodeURIComponent(notice.bidNtceNo || "")}`,
         },
       },
       tokens,

@@ -323,10 +323,21 @@ function render() {
 
 const q = query(collection(db, "notices"), orderBy("closeAt", "asc"));
 
+// 알림(푸시) 클릭으로 들어온 경우, URL의 ?notice=공고번호를 보고
+// 데이터가 로드되는 즉시 해당 공고의 상세 모달을 자동으로 열어줌
+const pendingNoticeId = new URLSearchParams(location.search).get("notice");
+let pendingNoticeOpened = false;
+
 onSnapshot(q, (snapshot) => {
   allNotices = snapshot.docs.map((doc) => doc.data());
   noticesById = new Map(allNotices.map((n) => [n.bidNtceNo, n]));
   render();
+
+  if (pendingNoticeId && !pendingNoticeOpened && noticesById.has(pendingNoticeId)) {
+    pendingNoticeOpened = true;
+    openModal(pendingNoticeId);
+    history.replaceState(null, "", location.pathname);
+  }
 });
 
 const lastCheckedEl = document.getElementById("lastChecked");
