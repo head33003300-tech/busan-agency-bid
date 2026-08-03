@@ -95,21 +95,30 @@ noticeForm.addEventListener("submit", async (e) => {
     return;
   }
 
+  const officialNoRaw = document.getElementById("officialNo").value.trim();
+  const bidNtceNo = officialNoRaw || `MANUAL-${Date.now()}`;
+
+  const auto = officialNoRaw
+    ? autoLinkedAgencyInfo(officialNoRaw, document.getElementById("org").value)
+    : { detailUrl: null, remarks: null };
+
   const notice = {
+    bidNtceNo,
     title: document.getElementById("title").value,
     org: document.getElementById("org").value,
     type: document.getElementById("type").value,
     postedAt: document.getElementById("postedAt").value || null,
     closeAt: document.getElementById("closeAt").value || null,
     baseAmount: baseAmountRaw ? Number(baseAmountRaw) : null,
-    detailUrl: document.getElementById("detailUrl").value || null,
-    remarks: remarksRaw || null,
+    detailUrl: document.getElementById("detailUrl").value || auto.detailUrl,
+    remarks: remarksRaw || auto.remarks,
     source: "manual",
     firstSeenAt: todayStr,
+    firstSeenTime: new Date().toISOString(),
     isExtended: false,
     updatedAt: new Date().toISOString(),
   };
-  await addDoc(collection(db, "notices"), notice);
+  await setDoc(doc(db, "notices", bidNtceNo), notice);
   noticeForm.reset();
 });
 
@@ -142,10 +151,28 @@ function normalizeType(raw) {
 }
 
 function buildDetailUrl(bidNtceNo) {
+  if (!/^R/i.test(bidNtceNo)) return null;
   const parts = String(bidNtceNo).split("-");
   if (parts.length < 2) return null;
   const [no, ord] = parts;
   return `https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo=${no}&bidPbancOrd=${ord}`;
+}
+
+// 공고번호와 기관명을 보고, 연계기관(한전 그룹사 등) 공고인지 자동 판단해서
+// 링크/비고를 자동으로 채워줌. 사용자가 이미 직접 입력한 값은 이 함수 결과보다 우선함.
+const KEPCO_GROUP_KEYWORDS = ["한국남부발전"]; // 필요하면 다른 발전공기업도 여기에 추가
+
+function autoLinkedAgencyInfo(bidNtceNo, org) {
+  if (!bidNtceNo) return { detailUrl: null, remarks: null };
+  if (/^R/i.test(bidNtceNo)) {
+    return { detailUrl: buildDetailUrl(bidNtceNo), remarks: null };
+  }
+  const isKepcoGroup = KEPCO_GROUP_KEYWORDS.some((kw) => (org || "").includes(kw));
+  const remarks = `이 공고는 발주기관 자체 조달시스템에 등록되어, 나라장터에서 별도 상세 링크를 지원하지 않습니다. 상세 열람을 희망하시는 경우 링크 접속 -> 통합검색창에 '${bidNtceNo}'로 검색 -> 빈 화면 -> 검색조건을 '공고번호'로 변경 후 재검색`;
+  return {
+    detailUrl: isKepcoGroup ? "https://srm.kepco.net/index.do" : null,
+    remarks,
+  };
 }
 
 excelUploadBtn.addEventListener("click", async () => {
@@ -280,6 +307,7 @@ function renderTable() {
       editingId = found.id;
       document.getElementById("title").value = n.title || "";
       document.getElementById("org").value = n.org || "";
+      document.getElementById("officialNo").value = n.bidNtceNo || "";
       document.getElementById("type").value = n.type || "물품";
       document.getElementById("postedAt").value = (n.postedAt || "").slice(0, 10);
       document.getElementById("closeAt").value = (n.closeAt || "").slice(0, 10);
