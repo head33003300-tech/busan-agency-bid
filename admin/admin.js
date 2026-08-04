@@ -4,6 +4,9 @@ import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  updatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
   collection,
@@ -42,6 +45,51 @@ loginForm.addEventListener("submit", async (e) => {
 });
 
 document.getElementById("logoutBtn").addEventListener("click", () => signOut(auth));
+
+// ── 비밀번호 변경 ──────────────────────────────────────
+const pwChangeForm = document.getElementById("pwChangeForm");
+const pwChangeMsg = document.getElementById("pwChangeMsg");
+
+pwChangeForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  pwChangeMsg.style.color = "var(--muted)";
+  pwChangeMsg.textContent = "";
+
+  const currentPw = document.getElementById("currentPw").value;
+  const newPw = document.getElementById("newPw").value;
+  const newPwConfirm = document.getElementById("newPwConfirm").value;
+
+  if (newPw.length < 6) {
+    pwChangeMsg.style.color = "var(--signal-due)";
+    pwChangeMsg.textContent = "새 비밀번호는 6자 이상이어야 해요.";
+    return;
+  }
+  if (newPw !== newPwConfirm) {
+    pwChangeMsg.style.color = "var(--signal-due)";
+    pwChangeMsg.textContent = "새 비밀번호가 서로 일치하지 않아요.";
+    return;
+  }
+
+  try {
+    const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPw);
+    await reauthenticateWithCredential(auth.currentUser, credential);
+    await updatePassword(auth.currentUser, newPw);
+
+    pwChangeMsg.style.color = "var(--navy-700)";
+    pwChangeMsg.textContent = "비밀번호가 변경되었어요.";
+    pwChangeForm.reset();
+  } catch (err) {
+    console.error(err);
+    pwChangeMsg.style.color = "var(--signal-due)";
+    if (err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
+      pwChangeMsg.textContent = "현재 비밀번호가 맞지 않아요.";
+    } else if (err.code === "auth/too-many-requests") {
+      pwChangeMsg.textContent = "시도가 너무 많아요. 잠시 후 다시 시도해주세요.";
+    } else {
+      pwChangeMsg.textContent = "변경 실패: " + err.message;
+    }
+  }
+});
 
 onAuthStateChanged(auth, (user) => {
   if (user) {

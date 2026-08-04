@@ -72,6 +72,15 @@
       <tbody id="noticeTableBody"></tbody>
     </table>
 
+    <h2 style="margin-top:28px;">비밀번호 변경</h2>
+    <form id="pwChangeForm">
+      <input type="password" id="currentPw" placeholder="현재 비밀번호" required />
+      <input type="password" id="newPw" placeholder="새 비밀번호 (6자 이상)" required />
+      <input type="password" id="newPwConfirm" placeholder="새 비밀번호 확인" required />
+      <button type="submit">비밀번호 변경</button>
+    </form>
+    <p id="pwChangeMsg" style="font-size:13px;"></p>
+
     <button id="logoutBtn" style="background:var(--muted); margin-top:20px;">로그아웃</button>
   </div>
 
