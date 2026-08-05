@@ -21,6 +21,20 @@ import {
 
 const auth = getAuth(app);
 
+// datetime-local 입력값("2026-08-05T14:30") ↔ 저장 형식("2026-08-05 14:30:00") 변환
+function fromDatetimeLocal(value) {
+  if (!value) return null;
+  return value.replace("T", " ") + ":00";
+}
+function toDatetimeLocal(stored) {
+  if (!stored) return "";
+  const s = String(stored).trim();
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})/);
+  if (m) return `${m[1]}T${m[2]}`;
+  const dateOnly = s.match(/^\d{4}-\d{2}-\d{2}/);
+  return dateOnly ? `${dateOnly[0]}T00:00` : "";
+}
+
 const loginBox = document.getElementById("loginBox");
 const adminPanel = document.getElementById("adminPanel");
 const loginForm = document.getElementById("loginForm");
@@ -130,8 +144,8 @@ noticeForm.addEventListener("submit", async (e) => {
         title: document.getElementById("title").value,
         org: document.getElementById("org").value,
         type: document.getElementById("type").value,
-        postedAt: document.getElementById("postedAt").value || null,
-        closeAt: document.getElementById("closeAt").value || null,
+        postedAt: fromDatetimeLocal(document.getElementById("postedAt").value),
+        closeAt: fromDatetimeLocal(document.getElementById("closeAt").value),
         baseAmount: baseAmountRaw ? Number(baseAmountRaw) : null,
         detailUrl: document.getElementById("detailUrl").value || null,
         remarks: remarksRaw || null,
@@ -155,8 +169,8 @@ noticeForm.addEventListener("submit", async (e) => {
     title: document.getElementById("title").value,
     org: document.getElementById("org").value,
     type: document.getElementById("type").value,
-    postedAt: document.getElementById("postedAt").value || null,
-    closeAt: document.getElementById("closeAt").value || null,
+    postedAt: fromDatetimeLocal(document.getElementById("postedAt").value),
+    closeAt: fromDatetimeLocal(document.getElementById("closeAt").value),
     baseAmount: baseAmountRaw ? Number(baseAmountRaw) : null,
     detailUrl: document.getElementById("detailUrl").value || auto.detailUrl,
     remarks: remarksRaw || auto.remarks,
@@ -357,8 +371,8 @@ function renderTable() {
       document.getElementById("org").value = n.org || "";
       document.getElementById("officialNo").value = n.bidNtceNo || "";
       document.getElementById("type").value = n.type || "물품";
-      document.getElementById("postedAt").value = (n.postedAt || "").slice(0, 10);
-      document.getElementById("closeAt").value = (n.closeAt || "").slice(0, 10);
+      document.getElementById("postedAt").value = toDatetimeLocal(n.postedAt);
+      document.getElementById("closeAt").value = toDatetimeLocal(n.closeAt);
       document.getElementById("baseAmount").value = n.baseAmount || "";
       document.getElementById("detailUrl").value = n.detailUrl || "";
       document.getElementById("remarks").value = n.remarks || "";
